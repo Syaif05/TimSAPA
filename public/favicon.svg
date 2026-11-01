@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient: Deep Indigo to Vibrant Violet -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5"/>
+      <stop offset="50%" stop-color="#7C3AED"/>
+      <stop offset="100%" stop-color="#9333EA"/>
+    </linearGradient>
+
+    <!-- Chat Bubble Inner Gradient -->
+    <linearGradient id="bubbleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F3F4F6"/>
+    </linearGradient>
+
+    <!-- Lightning / Action Accent Gradient -->
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+
+    <!-- Subtle Drop Shadow -->
+    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Squircle Base with Shadow -->
+  <rect x="8" y="8" width="112" height="112" rx="30" fill="url(#bgGrad)" filter="url(#dropShadow)"/>
+
+  <!-- Subtle Border Highlight -->
+  <rect x="8.5" y="8.5" width="111" height="111" rx="29.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="1.5"/>
+
+  <!-- Chat Bubble Shape -->
+  <path d="M34 40 C34 32.268 40.268 26 48 26 L80 26 C87.732 26 94 32.268 94 40 L94 66 C94 73.732 87.732 80 80 80 L52 80 L36 94 L36 78 C34.8 76.5 34 74.5 34 72 Z"
+        fill="url(#bubbleGrad)" filter="url(#dropShadow)"/>
+
+  <!-- Lightning Bolt Symbol in Center -->
+  <path d="M68 34 L50 56 L62 56 L58 72 L76 50 L64 50 Z" 
+        fill="url(#accentGrad)"/>
+
+  <!-- Live Pulse Dot in Top Right (Green Monitoring Status) -->
+  <circle cx="98" cy="30" r="11" fill="#10B981" stroke="#FFFFFF" stroke-width="3"/>
+  <circle cx="98" cy="30" r="4.5" fill="#FFFFFF"/>
+</svg>

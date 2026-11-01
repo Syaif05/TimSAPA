@@ -1,0 +1,33 @@
+{
+  "name": "timsapa",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": { "node": "24.x" },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "prebuild": "node scripts/render-google-guide.mjs",
+    "lint": "oxlint src server tests supabase/functions vite.config.js",
+    "preview": "vite preview",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "dexie": "^4.4.7",
+    "html-to-image": "^1.11.13",
+    "lucide-react": "^1.61.0",
+    "papaparse": "^5.7.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "oxlint": "^1.88.0",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.4"
+  }
+}

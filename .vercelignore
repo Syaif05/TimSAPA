@@ -1,0 +1,13 @@
+.env
+.env.*
+.sapa-cache/
+.git/
+node_modules/
+venv/
+.venv/
+*.app/
+*.command
+/sapa-*.png
+*.pem
+*.key
+supabase/schema/reset-timsapa.sql

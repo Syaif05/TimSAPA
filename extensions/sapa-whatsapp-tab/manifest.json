@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "SAPA • Gunakan Tab WhatsApp",
+  "version": "1.1.0",
+  "description": "Membuka draf SAPA di tab WhatsApp Web yang sudah ada tanpa membuat tab baru.",
+  "host_permissions": ["https://web.whatsapp.com/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [{
+    "matches": ["http://localhost/*", "http://127.0.0.1/*", "https://timsapa.vercel.app/*"],
+    "js": ["content.js"]
+  }]
+}

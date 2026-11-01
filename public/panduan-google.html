@@ -1,0 +1,81 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Panduan Google Cloud · SAPA</title><style>body{margin:0;background:#f6f7f9;color:#252832;font:15px/1.8 system-ui,sans-serif}article{max-width:780px;margin:auto;padding:36px 22px 70px}h1{font-size:32px;line-height:1.3}h2{font-size:20px;margin-top:40px}p{overflow-wrap:anywhere}a{color:#2563eb}pre{padding:18px;overflow:auto;background:#e9edf4;border-radius:14px;line-height:1.6;font-size:12px}code{font-size:.87em}nav a{text-decoration:none;font-size:13px}.table-scroll{overflow:auto}table{font-size:13px;border-collapse:collapse}td{padding:10px;border-bottom:1px solid #ddd;vertical-align:top}tr:first-child{font-weight:bold}@media(max-width:600px){article{padding:22px 18px}h1{font-size:26px}}</style></head><body><article><nav><a href="/admin">← Pengelola sumber</a></nav><h1>Menghubungkan SAPA ke Google Cloud</h1>
+<p>SAPA memakai satu akun pengelola untuk membaca dan mengubah dua spreadsheet yang sudah ditentukan. PIC tetap memilih nama tanpa login Google. Halaman admin berada di <code>/admin</code>, tanpa tombol di navbar. Identitas admin diverifikasi oleh Google dan dibandingkan dengan daftar email di server.</p>
+<p>Super admin pertama: <strong>syaifullohrohmat05@gmail.com</strong>.</p>
+<h2>1. Aktifkan Google Sheets API</h2>
+<p>1. Buka <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer">Google Cloud Console</a> dengan akun pengelola.</p>
+<p>2. Pilih proyek <strong>TimSAPA</strong>, Project ID <strong>timsapa</strong>, seperti pada tangkapan layar Anda.</p>
+<p>3. Buka <strong>APIs &amp; Services → Library</strong>.</p>
+<p>4. Cari <strong>Google Sheets API</strong>, lalu pilih <strong>Enable</strong>. Jika sudah aktif, tidak perlu mengaktifkan ulang.</p>
+<p>Tidak perlu membuat service account atau memberi akses seluruh Google Drive untuk alur ini.</p>
+<h2>2. Atur Google Auth Platform</h2>
+<p>1. Buka <a href="https://console.cloud.google.com/auth/overview?project=timsapa" target="_blank" rel="noreferrer">Google Auth Platform</a>. Jika muncul <strong>Get started</strong>, lanjutkan penyiapan.</p>
+<p>2. Pada <strong>Branding</strong>, isi nama aplikasi <strong>SAPA</strong>, email dukungan, dan email kontak pengembang dengan email Anda. Lengkapi URL aplikasi/kebijakan privasi saat memakai domain produksi.</p>
+<p>3. Pada <strong>Audience</strong>, pilih <strong>External</strong> jika memakai akun Gmail pribadi. Dalam mode <strong>Testing</strong>, tambahkan <code>syaifullohrohmat05@gmail.com</code> sebagai <strong>Test user</strong>.</p>
+<p>4. Pada <strong>Data Access</strong>, tambahkan scope <code>https://www.googleapis.com/auth/spreadsheets</code>. Login dasar menggunakan <code>openid</code>, <code>email</code>, dan <code>profile</code>.</p>
+<p>Izin spreadsheets mencakup spreadsheet yang dapat diakses akun tersebut. Server SAPA membatasi permintaan ke dua ID file yang sudah dikonfigurasi. Gunakan akun pengelola yang sesuai.</p>
+<p><strong>Untuk pemakaian berkelanjutan:</strong> refresh token aplikasi External yang masih Testing umumnya berakhir setelah 7 hari ketika meminta scope Sheets. Sebelum digunakan banyak orang, lengkapi persyaratan <strong>Publish app / In production</strong> dan verifikasi Google bila diminta. Mode Testing cocok untuk penyiapan awal; menghubungkan OAuth saja tidak menghapus batas ini.</p>
+<h2>3. Buat OAuth Client</h2>
+<p>1. Buka <strong>Google Auth Platform → Clients → Create client</strong>.</p>
+<p>2. Pilih <strong>Web application</strong>, nama misalnya <strong>SAPA Web</strong>.</p>
+<p>3. Pada <strong>Authorized redirect URIs</strong>, tambahkan:</p>
+<pre><code>http://127.0.0.1:5173/api/auth/callback
+http://localhost:5173/api/auth/callback</code></pre>
+<p>4. Ketika alamat Vercel sudah tersedia, tambahkan alamat persisnya, misalnya:</p>
+<pre><code>https://ALAMAT-SAPA-ANDA.vercel.app/api/auth/callback</code></pre>
+<p>Ganti contoh tersebut dengan alamat sebenarnya. <code>APP_ORIGIN</code> dan redirect URI harus cocok, termasuk <code>localhost</code> versus <code>127.0.0.1</code>, port, dan HTTPS. Jangan memakai URL preview Vercel yang berubah-ubah untuk koneksi utama.</p>
+<p>5. Simpan <strong>Client ID</strong> dan <strong>Client secret</strong> ke konfigurasi server pada langkah berikut. Jangan mengirim client secret melalui chat atau memasukkannya ke kode frontend. Alur ini memakai server OAuth; <strong>Authorized JavaScript origins</strong> tidak diperlukan.</p>
+<h2>4. Isi konfigurasi lokal</h2>
+<p>File <code>.env.local</code> telah disiapkan di folder proyek, dengan kunci enkripsi acak lokal dan email admin Anda. Isi Client ID, Client Secret, dan service_role key, kemudian ubah <code>SAPA_GOOGLE_ENABLED</code> menjadi <code>true</code>. File ini diabaikan Git dan diblokir dari akses file Vite. Pada checkout/perangkat baru yang belum mempunyai file ini, salin <code>.env.example</code> menjadi <code>.env.local</code> terlebih dahulu.</p>
+<pre><code>SAPA_GOOGLE_ENABLED=true
+SAPA_CONTACTS_MODE=excel
+APP_ORIGIN=http://127.0.0.1:5173
+GOOGLE_CLIENT_ID=ISI_CLIENT_ID_DARI_GOOGLE
+GOOGLE_CLIENT_SECRET=ISI_CLIENT_SECRET_DARI_GOOGLE
+SAPA_SUPER_ADMIN_EMAILS=syaifullohrohmat05@gmail.com
+SAPA_TOKEN_ENCRYPTION_KEY=ISI_KUNCI_YANG_DIBUAT_LOKAL
+SUPABASE_URL=https://tsbbgeodukscvzixivjf.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=ISI_KUNCI_SERVER_SUPABASE</code></pre>
+<p>Kunci enkripsi lokal sudah dibuat tanpa dicetak ke log/chat. Pertahankan nilai tersebut. Jika menyiapkan checkout baru, buat kunci enkripsi dengan menjalankan ini di Terminal lokal, lalu salin hasilnya ke <code>SAPA_TOKEN_ENCRYPTION_KEY</code>:</p>
+<pre><code>node -e &quot;console.log(require('node:crypto').randomBytes(32).toString('base64'))&quot;</code></pre>
+<p>Ambil kunci server dari <strong>Supabase → TimSAPA → Project Settings → API Keys</strong>. Gunakan kunci <strong>service_role</strong> server yang tersedia di proyek. Kunci ini memberi akses istimewa; simpan hanya sebagai environment variable server, tanpa awalan <code>VITE_</code>. Publishable key yang sudah ada di frontend bukan penggantinya.</p>
+<p>Pertahankan kunci enkripsi yang sama saat pindah dari lokal ke Vercel jika ingin memakai koneksi Google yang sama. Mengganti kunci mengharuskan akun Google dihubungkan ulang; jangan menghapus kunci lama tanpa rencana rotasi.</p>
+<p>Database memerlukan schema additive <code>supabase/schema/google-connection.sql</code>. Ini tidak menghapus data PIC atau data lama. Jangan menjalankan <code>reset-timsapa.sql</code> untuk penyiapan ini.</p>
+<h2>5. Masuk dan hubungkan akun</h2>
+<p>1. Jalankan ulang <code>npm run dev</code> setelah <code>.env.local</code> terisi. Buka <code>http://127.0.0.1:5173</code> agar sesuai <code>APP_ORIGIN</code>.</p>
+<p>2. Buka alamat tersembunyi dari navbar: <code>http://127.0.0.1:5173/admin</code>.</p>
+<p>3. Pilih <strong>Masuk dengan Google</strong>, lalu gunakan <code>syaifullohrohmat05@gmail.com</code>. Akun lain ditolak server walaupun mengetahui URL admin.</p>
+<p>4. Setelah masuk, klik <strong>Hubungkan Google Sheets</strong>. Pilih akun yang sama dan berikan izin spreadsheet yang diminta. Login admin dan izin Sheets adalah dua langkah berbeda.</p>
+<p>5. Pastikan akun pengelola mempunyai akses <strong>Editor</strong> ke spreadsheet monitoring. File kontak saat ini telah diverifikasi masih <strong>KONTAK PEGAWAI ALFA (OKTOBER).xlsx</strong>. Sementara belum dipindahkan, kontak tetap dibaca dari Excel asli; <code>SAPA_CONTACTS_MODE=excel</code> mempertahankan cara ini.</p>
+<p>6. Setelah sumber kontak utama dipindahkan ke Google Sheets, buka kolom <strong>Tautan kontak Google Sheets</strong> pada halaman admin, tempel tautan baru, isi nama tab kontak, lalu <strong>Simpan sumber kontak</strong>. Berikan akun pengelola akses ke file baru. Memindahkan sumber utama berarti pembaruan selanjutnya dilakukan di file baru; salinan konversi tidak otomatis mengikuti file Excel lama.</p>
+<p>7. Setelah muncul <strong>Google terhubung</strong>, kembali ke Monitoring. Semua PIC memakai koneksi pengelola yang sama.</p>
+<p>8. Sakelar <strong>Edit oleh PIC</strong> mengaktifkan/menonaktifkan perubahan Status dan Kendala untuk seluruh PIC. Nilai awal aktif; tombol edit baru muncul sesudah koneksi Google aktif.</p>
+<p>Nama PIC tetap merupakan profil bersama tanpa autentikasi pribadi. Karena pilihan Anda mengizinkan siapa saja memakai PIC, siapa saja yang dapat mengakses situs dan memilih PIC dapat mengubah kolom yang diizinkan saat sakelar aktif. Riwayat mencatat PIC yang dipilih, bukan bukti identitas orang. Login super admin hanya melindungi pengaturan khusus admin dan koneksi Google.</p>
+<h2>6. Edit dari Monitoring</h2>
+<p>Pada detail AC, klik ikon <strong>pensil</strong> → pilih pesanan → ubah <strong>Status</strong> atau <strong>Kendala</strong> → <strong>Simpan perubahan</strong>. Penulisan memakai nilai RAW, sehingga teks tidak dijalankan sebagai formula. DONE akan keluar dari antrean setelah sinkronisasi dan tidak ikut pesan/gambar.</p>
+<p>Server memeriksa ulang shipment, kode toko, posisi baris, header, dan nilai lama sebelum menulis. Jika sudah berubah, aplikasi meminta sinkronisasi. Google Sheets tidak menyediakan transaksi compare-and-swap untuk sel; perubahan bersamaan di sel yang sama masih mungkin bertabrakan setelah pemeriksaan. Saat ada pesan respons perubahan belum diterima, sinkronkan dan periksa hasil sebelum mencoba lagi; server tidak mengulang penulisan otomatis.</p>
+<h2>7. Hosting Vercel</h2>
+<p>Proyek sudah memiliki endpoint Node pada folder <code>api/</code> serta rewrite <code>/admin</code> pada <code>vercel.json</code>. Endpoint ini ikut di-deploy bersama frontend; jangan mengunggah folder <code>dist</code> saja.</p>
+<p>Di <strong>Vercel → Project → Settings → Environment Variables</strong>, masukkan semua variabel dari langkah 4. Ubah <code>APP_ORIGIN</code> menjadi alamat produksi HTTPS, tambahkan redirect URI produksinya di Google, lalu redeploy. Isi secrets langsung di Vercel, bukan di chat. Jangan mengaktifkan preview deployment publik memakai secrets produksi secara sembarang.</p>
+<h2>Mengatasi masalah</h2>
+<p>Hasil pengujian lokal 1 November 2026: data monitoring Google dan profil PIC di browser berhasil dibaca. Permintaan Node langsung ke Supabase masih mengalami <code>UNABLE_TO_VERIFY_LEAF_SIGNATURE</code>. Setelah kredensial diisi, koneksi server ini tetap perlu diperbaiki agar OAuth/cache/audit berjalan di laptop; penyiapan OAuth tidak memperbaiki trust certificate. Konfigurasi Vercel memakai environment server sendiri dan perlu diverifikasi sesudah deploy.</p>
+<div class="table-scroll"><table><tbody>
+<tr><td>Pesan / gejala</td><td>Tindakan</td></tr>
+<tr><td>Konfigurasi belum lengkap</td><td>Lengkapi seluruh variabel <code>.env.local</code>/Vercel dan restart/redeploy.</td></tr>
+<tr><td>Koneksi Google belum diaktifkan</td><td>Walaupun kredensial sudah terisi, ubah <code>SAPA_GOOGLE_ENABLED=false</code> menjadi <code>true</code>, lalu restart server.</td></tr>
+<tr><td>Koneksi Supabase perlu diperbaiki</td><td>Konfigurasi sudah terisi, tetapi server belum bisa mengakses database. Untuk error sertifikat Fortinet, coba jaringan lain/hotspot atau hubungi administrator jaringan untuk memperbaiki CA. Jangan mengimpor CA yang tidak diketahui atau menonaktifkan HTTPS.</td></tr>
+<tr><td><code>redirect_uri_mismatch</code></td><td>Samakan callback Google dan <code>APP_ORIGIN</code>; pastikan port dev benar-benar 5173.</td></tr>
+<tr><td><code>access_denied</code> saat Testing</td><td>Tambahkan email pengelola ke Test users dan gunakan akun itu.</td></tr>
+<tr><td>Akun tidak terdaftar sebagai super admin</td><td>Periksa <code>SAPA_SUPER_ADMIN_EMAILS</code>; server memeriksa email Google yang sudah diverifikasi.</td></tr>
+<tr><td>Izin file / API belum aktif</td><td>Aktifkan Sheets API di proyek client OAuth dan berikan akun pengelola akses Editor pada file.</td></tr>
+<tr><td>Tab tanggal belum tersedia</td><td>Buat/periksa nama REG dan DS tanggal hari ini. Aplikasi tidak mengambil tanggal lain diam-diam.</td></tr>
+<tr><td>File/range tidak dapat dibaca</td><td>Periksa nama tab dan pastikan file native Google Sheets, bukan Office <code>.xlsx</code>.</td></tr>
+<tr><td>Izin Google kedaluwarsa/dicabut</td><td>Buka <code>/admin</code> dan Hubungkan ulang Google. Perhatikan batas 7 hari mode Testing.</td></tr>
+<tr><td>Sertifikat HTTPS server tidak valid</td><td>Perbaiki CA/jaringan server. Jangan memakai <code>NODE_TLS_REJECT_UNAUTHORIZED=0</code> atau menonaktifkan TLS. OAuth tidak memperbaiki masalah sertifikat server.</td></tr>
+<tr><td>Data lama masih terlihat</td><td>Periksa waktu baca/peringatan. Cache server 30 detik untuk monitoring, 5 menit untuk kontak. Sinkronisasi gagal mempertahankan cache tanggal/sumber yang sama.</td></tr>
+</tbody></table></div>
+<h2>Referensi resmi</h2>
+<p>- <a href="https://developers.google.com/identity/protocols/oauth2/web-server" target="_blank" rel="noreferrer">Google OAuth untuk aplikasi web server</a></p>
+<p>- <a href="https://developers.google.com/identity/openid-connect/openid-connect" target="_blank" rel="noreferrer">Validasi identitas OpenID Connect Google</a></p>
+<p>- <a href="https://developers.google.com/workspace/sheets/api/scopes" target="_blank" rel="noreferrer">Scope Google Sheets</a></p>
+<p>- <a href="https://developers.google.com/identity/protocols/oauth2#expiration" target="_blank" rel="noreferrer">Masa berlaku refresh token</a></p>
+<p>- <a href="https://vercel.com/docs/frameworks/frontend/vite" target="_blank" rel="noreferrer">Vercel Functions untuk Vite</a></p></article></body></html>

@@ -1,0 +1,43 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local read-only cache of the user's contact workbook
+.sapa-cache/
+
+# Local tooling, desktop launchers, and verification screenshots
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.app/
+*.command
+/sapa-*.png
+.vercel/
+*.pem
+*.key
+supabase/schema/reset-timsapa.sql
