@@ -1,0 +1,5 @@
+project_id = "tsbbgeodukscvzixivjf"
+
+[functions.pic-profiles]
+# Public shared PIC selection; handler validates the publishable app key.
+verify_jwt = false
