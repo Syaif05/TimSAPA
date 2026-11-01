@@ -321,6 +321,7 @@ function WorkspaceApp() {
           <MonitoringWorkspace
             acGroups={acGroups}
             rawRows={monitoringRows}
+            sheetRows={sourceRows}
             orderSummary={orderSummary}
             dataConnection={sheets}
             sheetPreferences={sheetPreferences}

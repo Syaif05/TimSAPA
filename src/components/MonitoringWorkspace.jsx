@@ -1,6 +1,7 @@
 import { OrderProgress } from './OrderProgress'
 import { isDoneOrder, orderSetKey } from '../utils/orderState'
 import { filterMonitoringGroups } from '../utils/monitoringView'
+import { filterSheetRows } from '../utils/sheetsParser'
 import { usePicProfile } from '../profiles/ProfileContext'
 import { MonitoringSheet } from './MonitoringSheet'
 import { createPortal } from 'react-dom'
@@ -31,6 +32,7 @@ export function MonitoringWorkspace({
   sheetPreferences,
   onSheetPreferencesChange,
   rawRows = [],
+  sheetRows = [],
   contactsConnection,
   activeTemplate,
   activeTemplateKey,
@@ -58,6 +60,7 @@ export function MonitoringWorkspace({
   const { storage } = usePicProfile()
   const [viewMode, setViewMode] = useState(() => { try { const saved = storage.getItem('sapa_monitoring_view'); return ['split','grid','sheet'].includes(saved) ? saved : 'split' } catch { return 'split' } })
   const [sheetDetailKey, setSheetDetailKey] = useState(null)
+  const [sheetOrderStatus, setSheetOrderStatus] = useState('ALL')
   useEffect(() => { try { storage.setItem('sapa_monitoring_view', viewMode) } catch {} }, [viewMode, storage])
   const [selectedAcKey, setSelectedAcKey] = useState(null)
 
@@ -91,6 +94,7 @@ export function MonitoringWorkspace({
   // Unique PICs & Jams
   const availablePics = useMemo(() => {
     const set = new Set()
+    sheetRows.forEach(row => { if (row.pic && row.pic !== '-') set.add(row.pic) })
     acGroups.forEach((g) => {
       if (g.pic && g.pic !== '-') set.add(g.pic)
       g.rows.forEach((r) => {
@@ -98,10 +102,11 @@ export function MonitoringWorkspace({
       })
     })
     return Array.from(set).sort()
-  }, [acGroups])
+  }, [acGroups, sheetRows])
 
   const availableJams = useMemo(() => {
     const set = new Set()
+    sheetRows.forEach(row => { if (row.jam && row.jam !== '-') set.add(row.jam) })
     acGroups.forEach((g) => {
       if (g.jam && g.jam !== '-') set.add(g.jam)
       g.rows.forEach((r) => {
@@ -109,7 +114,7 @@ export function MonitoringWorkspace({
       })
     })
     return Array.from(set).sort()
-  }, [acGroups])
+  }, [acGroups, sheetRows])
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
@@ -131,6 +136,7 @@ export function MonitoringWorkspace({
 
   // Both views operate on the same matching orders and regenerate group totals.
   const filteredAcGroups = useMemo(() => filterMonitoringGroups(acGroups, filters, deferredSearch, sentStatusMap), [acGroups, filters, deferredSearch, sentStatusMap])
+  const sheetSourceRows = useMemo(() => filterSheetRows(sheetRows, { source: isLive ? sheetPreferences?.source : 'ALL', pic: isLive ? sheetPreferences?.pic : 'ALL' }), [sheetRows, isLive, sheetPreferences?.source, sheetPreferences?.pic])
   const sheetFilterKey = JSON.stringify([filters.pic, filters.jam, filters.sla, filters.status, deferredSearch, sheetPreferences?.source, sheetPreferences?.pic, sheetPreferences?.orderStatus])
   const sheetDetailAc = filteredAcGroups.find(group => group.acKey === sheetDetailKey)
   useEffect(() => { if (sheetDetailKey && (!sheetDetailAc || viewMode !== 'sheet')) setSheetDetailKey(null) }, [sheetDetailAc, sheetDetailKey, viewMode])
@@ -208,20 +214,21 @@ export function MonitoringWorkspace({
         <div className="filter-bar">
           <label className="search-field"><Search size={16}/><input aria-label="Cari AC, toko, atau shipment" placeholder="Cari AC, toko, shipment…" value={filters.search} onChange={e => handleFilterChange('search', e.target.value)}/></label>
           <div className="filter-selects">
+            {viewMode === 'sheet' && <select className="clean-select" aria-label="Filter status pesanan spreadsheet" value={sheetOrderStatus} onChange={event => setSheetOrderStatus(event.target.value)}><option value="ALL">Semua status pesanan</option><option value="ACTIVE">Belum DONE</option><option value="DONE">DONE</option><option value="EMPTY">Belum diisi</option>{[...new Set(sheetSourceRows.map(row => String(row.sheetStatus || '').trim()).filter(status => status && status.toUpperCase() !== 'DONE'))].sort().map(status => <option key={status} value={status}>{status}</option>)}</select>}
             {isLive && <>
               <select className="clean-select" aria-label="Filter sumber" value={sheetPreferences.source} onChange={e => {onSheetPreferencesChange(prev => ({...prev, source: e.target.value})); setSelectedAcKey(null)}}><option value="ALL">DS + REG</option><option value="DS">DS</option><option value="REG">REG</option></select>
               <select className="clean-select" aria-label="Filter PIC spreadsheet" value={sheetPreferences.pic} onChange={e => {onSheetPreferencesChange(prev => ({...prev, pic: e.target.value})); setSelectedAcKey(null)}}><option value="ALL">Semua PIC</option>{[...new Set([sheetPreferences.pic, ...sourcePics])].filter(p => p && p !== 'ALL').map(pic => <option key={pic}>{pic}</option>)}</select>
-              <select className="clean-select" aria-label="Status pesanan di sheet" value={sheetPreferences.orderStatus} onChange={e => {onSheetPreferencesChange(prev => ({...prev, orderStatus: e.target.value})); setSelectedAcKey(null)}}><option value="ACTIVE">Belum DONE</option><option value="ALL">Semua yang belum DONE</option><option value="EMPTY">Belum diisi</option>{sourceStatuses.map(status => <option key={status}>{status}</option>)}</select>
+              {viewMode !== 'sheet' && <select className="clean-select" aria-label="Status pesanan di sheet" value={sheetPreferences.orderStatus} onChange={e => {onSheetPreferencesChange(prev => ({...prev, orderStatus: e.target.value})); setSelectedAcKey(null)}}><option value="ACTIVE">Belum DONE</option><option value="ALL">Semua yang belum DONE</option><option value="EMPTY">Belum diisi</option>{sourceStatuses.map(status => <option key={status}>{status}</option>)}</select>}
             </>}
-            <select className="clean-select" aria-label="Filter status" value={filters.status} onChange={e => handleFilterChange('status', e.target.value)}><option value="ALL">Status chat</option>{statuses.map(s => <option key={s.id} value={s.id}>{s.shortLabel || s.label} ({statusCounts[s.id] || 0})</option>)}</select>
+            {viewMode !== 'sheet' && <select className="clean-select" aria-label="Filter status" value={filters.status} onChange={e => handleFilterChange('status', e.target.value)}><option value="ALL">Status chat</option>{statuses.map(s => <option key={s.id} value={s.id}>{s.shortLabel || s.label} ({statusCounts[s.id] || 0})</option>)}</select>}
             {!isLive && <select className="clean-select" aria-label="Filter PIC" value={filters.pic} onChange={e => handleFilterChange('pic', e.target.value)}><option value="ALL">PIC</option>{availablePics.map(p => <option key={p}>{p}</option>)}</select>}
             <select className="clean-select" aria-label="Filter jam" value={filters.jam} onChange={e => handleFilterChange('jam', e.target.value)}><option value="ALL">Jam</option>{availableJams.map(j => <option key={j}>{j}</option>)}</select>
             <select className="clean-select" aria-label="Filter SLA" value={filters.sla} onChange={e => handleFilterChange('sla', e.target.value)}><option value="ALL">SLA</option><option value="CRITICAL">Kritis</option><option value="OVER_1_2">&gt; 1–2 jam</option><option value="12_JAM">&gt; 12 jam</option><option value="6_JAM">&gt; 6 jam</option><option value="2_JAM">&gt; 2 jam</option><option value="1_JAM">&gt; 1 jam</option></select>
-            {Object.values(filters).some(v => v !== 'ALL' && v !== '') && <button className="icon-button" aria-label="Hapus filter" title="Hapus filter" onClick={() => { setFilters({search: '', pic: 'ALL', jam: 'ALL', sla: 'ALL', status: 'ALL'}); setSelectedAcKey(null) }}><RotateCcw size={14}/></button>}
+            {(Object.values(filters).some(v => v !== 'ALL' && v !== '') || (viewMode === 'sheet' && sheetOrderStatus !== 'ALL')) && <button className="icon-button" aria-label="Hapus filter" title="Hapus filter" onClick={() => { setFilters({search: '', pic: 'ALL', jam: 'ALL', sla: 'ALL', status: 'ALL'}); setSheetOrderStatus('ALL'); setSelectedAcKey(null) }}><RotateCcw size={14}/></button>}
           </div>
         </div>
 
-        {acGroups.length === 0 ? <div className="empty-panel"><FileSpreadsheet size={30} strokeWidth={1}/><h2>{isLive ? (dataConnection.snapshot ? 'Tidak ada pesanan untuk filter ini' : dataConnection.phase === 'error' ? 'Sumber belum bisa dibaca' : 'Menghubungkan Google Sheets…') : 'Belum ada data'}</h2>{isLive ? <span className="text-xs text-zinc-400">{dataConnection.snapshot ? 'Ubah PIC, sumber, atau status pesanan.' : 'Data manual tetap tersimpan terpisah.'}</span> : <div className="flex gap-2 flex-wrap justify-center"><button className="primary-button" onClick={() => setIsPasteModalOpen(true)}><Plus size={15}/>Input data</button><button className="secondary-button" onClick={handleLoadDemo}>Muat demo</button></div>}</div> : filteredAcGroups.length === 0 ? <div className="empty-panel"><Search size={28}/><h2>Tidak ada hasil</h2><span className="text-xs text-zinc-400">Sesuaikan pencarian atau filter.</span></div> : viewMode === 'sheet' ? <MonitoringSheet groups={filteredAcGroups} filterKey={sheetFilterKey} onOpenGroup={key => {setSelectedAcKey(key);setSheetDetailKey(key)}} tableSettings={tableSettings} showToast={showToast}/> : viewMode === 'split' ? (
+        {viewMode !== 'sheet' && acGroups.length === 0 ? <div className="empty-panel"><FileSpreadsheet size={30} strokeWidth={1}/><h2>{isLive ? (dataConnection.snapshot ? 'Tidak ada pesanan untuk filter ini' : dataConnection.phase === 'error' ? 'Sumber belum bisa dibaca' : 'Menghubungkan Google Sheets…') : 'Belum ada data'}</h2>{isLive ? <span className="text-xs text-zinc-400">{dataConnection.snapshot ? 'Ubah PIC, sumber, atau status pesanan.' : 'Data manual tetap tersimpan terpisah.'}</span> : <div className="flex gap-2 flex-wrap justify-center"><button className="primary-button" onClick={() => setIsPasteModalOpen(true)}><Plus size={15}/>Input data</button><button className="secondary-button" onClick={handleLoadDemo}>Muat demo</button></div>}</div> : viewMode !== 'sheet' && filteredAcGroups.length === 0 ? <div className="empty-panel"><Search size={28}/><h2>Tidak ada hasil</h2><span className="text-xs text-zinc-400">Sesuaikan pencarian atau filter.</span></div> : viewMode === 'sheet' ? <MonitoringSheet rows={sheetSourceRows} groups={filteredAcGroups} filters={filters} search={deferredSearch} orderStatus={sheetOrderStatus} filterKey={`${sheetFilterKey}:${sheetOrderStatus}`} onOpenGroup={key => {setSelectedAcKey(key);setSheetDetailKey(key)}} tableSettings={tableSettings} showToast={showToast}/> : viewMode === 'split' ? (
           <div className="workspace-split">
             <section className="queue-panel" aria-label="Antrean AC">
               <div className="queue-heading"><h2>Antrean AC</h2><span className="tiny-badge">{filteredAcGroups.length}</span></div>

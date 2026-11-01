@@ -10,13 +10,14 @@ Halaman utama: `http://localhost:5173/`. Halaman pengelola: `/admin`, terpisah d
 
 ## Perilaku aplikasi
 
-- Monitoring menyediakan pilihan **Antrean** dan **Spreadsheet**. Mode Spreadsheet mengikuti kolom A–V sumber, memiliki header tetap, navigasi sel, salin TSV, pagination, serta akses pesan/lampiran. Pilihan tampilan diingat per PIC pada browser ini.
+- Monitoring menyediakan pilihan **Antrean** dan **Spreadsheet**. Mode Spreadsheet menampilkan kolom sumber selain K–M, mengurutkan Kode Toko → Nama AC → PIC (A–Z), serta menyediakan menu filter nilai dan urutan pada setiap header kolom, termasuk untuk menyembunyikan DONE. Tabel memiliki header tetap, navigasi sel, salin TSV, pagination, dan akses pesan/lampiran untuk pesanan aktif. Pilihan tampilan diingat per PIC pada browser ini.
 - PIC memilih nama tanpa akun pribadi. Preferensi template, tema, dan desain lampiran disimpan bersama per PIC di Supabase.
-- REG dan DS mengikuti tab tanggal Asia/Jakarta. DS tampil lebih dahulu. Pesanan DONE hanya dihitung dalam rekap dan tidak masuk antrean, pesan, atau gambar.
+- REG dan DS mengikuti tab tanggal Asia/Jakarta. Antrean mendahulukan DS. Pesanan DONE dapat dilihat melalui filter mode Spreadsheet, tetapi tidak masuk antrean, pesan, atau gambar.
 - Akun Google pengelola dapat dihubungkan oleh super admin untuk membaca sumber melalui Sheets API. Status dan Kendala dapat diubah sesuai pengaturan admin.
 - Login admin menggunakan Google OIDC, PKCE, state sekali pakai, nonce, cookie HttpOnly, dan daftar email tepercaya di server.
 - Pilihan PIC bukan autentikasi pribadi. Ketika edit PIC aktif, pengguna situs dapat memilih PIC terdaftar dan mengubah kolom yang diizinkan. Audit mencatat PIC yang dipilih.
 - Pesan WhatsApp tetap dikirim manual. Gambar tabel dibuat di browser.
+- Tombol **Buka chat** segera meminta ekstensi memakai tab WhatsApp Web yang sudah terbuka; pembuatan PNG tidak menahan pembukaan chat. Jika clipboard gagal, pengguna dapat menyalin atau mengunduh gambar secara terpisah.
 
 ## Deployment Vercel
 

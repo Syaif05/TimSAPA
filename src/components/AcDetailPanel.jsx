@@ -52,7 +52,7 @@ export function AcDetailPanel({
   }, [acGroup?.phone])
 
   const { handleOpenWhatsApp, isOpeningWhatsApp } = useWhatsAppChat({
-    phone, message, tableRef, tableSettings, showToast, contactsReady,
+    phone, message, tableRef, tableSettings, showToast,
     onOpened: () => onStatusChange(acGroup.acKey, 'sudah_dihubungi'),
   })
 
@@ -142,6 +142,7 @@ export function AcDetailPanel({
           <Phone size={16}/><input aria-label="Nomor WhatsApp AC" type="tel" inputMode="tel" value={phone} placeholder="Nomor WhatsApp" onChange={e => {setPhone(e.target.value); onPhoneChange(acGroup.acKey, e.target.value)}}/>
           {isValidPhone ? <Check size={15} className="text-emerald-600"/> : <span className="text-[11px] text-rose-500 whitespace-nowrap">{phone ? 'Tidak valid' : 'Isi nomor'}</span>}
         </div>
+        {!contactsReady && isValidPhone && <p className="text-[11px] text-amber-600">Kontak belum tersinkron. Periksa nomor sebelum membuka chat.</p>}
         <div>
           <div className="field-heading"><label htmlFor={`message-${acGroup.acKey}`}>Draf pesan</label><div className="flex items-center gap-1"><button className="icon-button" title="Reset pesan" aria-label="Reset pesan" onClick={() => setMessage(renderedMessage)}><RotateCcw size={14}/></button><button className="icon-button" title="Salin teks" aria-label="Salin teks" onClick={handleCopyText}>{isCopiedText ? <Check size={14}/> : <Copy size={14}/>}</button></div></div>
           <textarea id={`message-${acGroup.acKey}`} className="message-editor" rows={7} value={message} onChange={e => setMessage(e.target.value)}/>
@@ -153,7 +154,7 @@ export function AcDetailPanel({
       </div>
       <div className="chat-actions">
         <InfoButton title="Cara mengirim pesan"><p>Klik Buka chat. Pesan akan terisi di tab WhatsApp dan gambar tabel disalin ke clipboard.</p><p>Tempel gambar dengan Cmd/Ctrl + V, lalu tekan Kirim. Jika penyalinan gagal, gunakan Salin gambar atau unduh PNG lewat ikon pratinjau.</p></InfoButton>
-        <div className="flex items-center gap-2 flex-wrap"><button className="secondary-button" disabled={isGenerating || isOpeningWhatsApp} onClick={handleCopyImage}>{isCopiedImage ? <Check size={15}/> : <Copy size={15}/>}<span>{isGenerating ? 'Menyalin…' : isCopiedImage ? 'Tersalin' : 'Salin gambar'}</span></button><button className="primary-button chat-open-button" onClick={handleOpenWhatsApp} disabled={!contactsReady || !isValidPhone || isOpeningWhatsApp || isGenerating} title={!contactsReady ? 'Menunggu sumber kontak spreadsheet' : 'Buka chat WhatsApp'}><MessageSquare size={16}/><span>{isOpeningWhatsApp ? 'Menyiapkan…' : 'Buka chat'}</span><ExternalLink size={13}/></button></div>
+        <div className="flex items-center gap-2 flex-wrap"><button className="secondary-button" disabled={isGenerating || isOpeningWhatsApp} onClick={handleCopyImage}>{isCopiedImage ? <Check size={15}/> : <Copy size={15}/>}<span>{isGenerating ? 'Menyalin…' : isCopiedImage ? 'Tersalin' : 'Salin gambar'}</span></button><button className="primary-button chat-open-button" onClick={handleOpenWhatsApp} disabled={!isValidPhone || isOpeningWhatsApp || isGenerating} title={!isValidPhone ? 'Isi nomor WhatsApp Indonesia yang valid' : 'Buka chat di tab WhatsApp Web yang sudah ada'}><MessageSquare size={16}/><span>{isOpeningWhatsApp ? 'Menyiapkan…' : 'Buka chat'}</span><ExternalLink size={13}/></button></div>
       </div>
     </section>
   )
