@@ -20,6 +20,7 @@ export function WhatsAppConnection({ compact = false }) {
         <li>Di Chrome / Edge, buka Extensions dan aktifkan Developer mode.</li>
         <li>Pilih Load unpacked, lalu folder <code className="break-all text-xs">ChatOtoV1/extensions/sapa-whatsapp-tab</code>.</li>
         <li>Muat ulang SAPA dan login WhatsApp Web di browser serta profil yang sama.</li>
+        <li>Klik ikon ekstensi SAPA untuk melihat status kedua tab. Setelah memperbarui file ekstensi, klik Reload di halaman Extensions.</li>
       </ol>
       <p>Tanpa ekstensi, salin pesan dan gambar lalu pindah ke tab WA secara manual.</p>
       <button onClick={check} disabled={state === 'checking'} className="secondary-button"><RefreshCw size={14} />{state === 'checking' ? 'Memeriksa…' : 'Periksa koneksi'}</button>

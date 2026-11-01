@@ -1,0 +1,32 @@
+:root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1f2937; background: #faf8f5; }
+* { box-sizing: border-box; }
+body { width: 348px; margin: 0; }
+main { padding: 16px; }
+.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.brand-mark { display: grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: 11px; background: #2563eb; color: white; font-size: 21px; font-weight: 800; box-shadow: 0 5px 12px #2563eb33; }
+.brand div { display: grid; gap: 2px; }
+.brand strong { font-size: 14px; letter-spacing: -.02em; }
+.brand div span { font-size: 11px; color: #71717a; }
+.version { margin-left: auto; align-self: flex-start; padding: 3px 6px; border: 1px solid #e5e7eb; border-radius: 6px; color: #71717a; font-size: 10px; }
+.status-card { padding: 15px; border: 1px solid #e5e7eb; border-radius: 13px; background: #fff; box-shadow: 0 6px 20px #1f29370a; }
+.status-heading { display: flex; align-items: center; gap: 8px; }
+.status-icon { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; color: #64748b; background: #f1f5f9; font-size: 12px; }
+h1 { margin: 0; font-size: 14px; letter-spacing: -.02em; }
+.status-card p { margin: 9px 0 0 30px; color: #71717a; font-size: 11px; line-height: 1.5; }
+.status-card[data-state="ready"] { border-color: #bbf7d0; background: #f0fdf4; }
+.status-card[data-state="ready"] .status-icon { color: #15803d; background: #dcfce7; }
+.status-card[data-state="waiting"] { border-color: #fde68a; background: #fffbeb; }
+.status-card[data-state="waiting"] .status-icon { color: #b45309; background: #fef3c7; }
+.checks { display: grid; gap: 7px; margin-top: 12px; }
+.check-row { display: flex; align-items: center; gap: 9px; min-height: 54px; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; }
+.check-icon { display: grid; place-items: center; width: 29px; height: 29px; flex: none; border-radius: 8px; color: #2563eb; background: #eff6ff; font-size: 13px; font-weight: 800; }
+.check-icon.wa { color: #15803d; background: #dcfce7; font-size: 10px; }
+.check-row div { display: grid; gap: 2px; min-width: 0; }
+.check-row strong { font-size: 12px; }
+.check-row small { color: #71717a; font-size: 10px; }
+.check-result { margin-left: auto; max-width: 115px; text-align: right; color: #475569; font-size: 10px; line-height: 1.3; }
+.refresh-button { display: block; width: 100%; min-height: 36px; margin-top: 12px; border: 0; border-radius: 9px; background: #2563eb; color: white; font-size: 12px; font-weight: 700; cursor: pointer; }
+.refresh-button:hover { background: #1d4ed8; }
+.refresh-button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.refresh-button:disabled { opacity: .6; cursor: wait; }
+.hint { margin: 12px 3px 0; color: #71717a; font-size: 10px; line-height: 1.5; }

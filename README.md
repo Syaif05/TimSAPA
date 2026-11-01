@@ -37,6 +37,7 @@ Schema additive tersedia pada `supabase/schema/`. Proyek Supabase yang sudah dik
 4. Buka WhatsApp Web dalam browser dan profil yang sama. Ekstensi mendukung localhost dan domain produksi `https://timsapa.vercel.app`.
 
 Jika tidak ada tab WhatsApp, aplikasi meminta pengguna membukanya. Ekstensi tidak membuat tab WhatsApp baru secara otomatis.
+Klik ikon ekstensi **SAPA • Gunakan Tab WhatsApp** untuk melihat status tab SAPA dan WhatsApp Web. Setelah memperbarui ekstensi lokal, klik **Reload** di halaman Extensions dan muat ulang SAPA agar popup status dan penghubung baru aktif.
 
 ## Verifikasi
 
