@@ -31,13 +31,15 @@ Schema additive tersedia pada `supabase/schema/`. Proyek Supabase yang sudah dik
 
 ## Gunakan tab WhatsApp yang sudah terbuka
 
-1. Unduh/clone repository ini.
+1. Unduh [paket ekstensi ZIP](releases/SAPA-WhatsApp-v1.3.0.zip), lalu ekstrak; atau clone repository ini.
 2. Buka Extensions Chrome/Edge, aktifkan Developer mode, lalu Load unpacked folder `extensions/sapa-whatsapp-tab`.
 3. Jika ekstensi sebelumnya sudah terpasang, klik Reload setelah memperbarui file.
 4. Buka WhatsApp Web dalam browser dan profil yang sama. Ekstensi mendukung localhost dan domain produksi `https://timsapa.vercel.app`.
 
 Jika tidak ada tab WhatsApp, aplikasi meminta pengguna membukanya. Ekstensi tidak membuat tab WhatsApp baru secara otomatis.
 Klik ikon ekstensi **SAPA • Gunakan Tab WhatsApp** untuk melihat status tab SAPA dan WhatsApp Web. Setelah memperbarui ekstensi lokal, klik **Reload** di halaman Extensions dan muat ulang SAPA agar popup status dan penghubung baru aktif.
+
+[Panduan distribusi dan publikasi Chrome Web Store](docs/CHROME-EXTENSION-PUBLISHING.md).
 
 ## Verifikasi
 
