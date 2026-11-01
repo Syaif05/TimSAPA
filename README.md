@@ -10,7 +10,7 @@ Halaman utama: `http://localhost:5173/`. Halaman pengelola: `/admin`, terpisah d
 
 ## Perilaku aplikasi
 
-- Monitoring menyediakan pilihan **Antrean** dan **Spreadsheet**. Mode Spreadsheet menampilkan kolom sumber selain K–M, mengurutkan Kode Toko → Nama AC → PIC (A–Z), serta menyediakan menu filter nilai dan urutan pada setiap header kolom, termasuk untuk menyembunyikan DONE. Tabel memiliki header tetap, navigasi sel, salin TSV, pagination, dan akses pesan/lampiran untuk pesanan aktif. Pilihan tampilan diingat per PIC pada browser ini.
+- Monitoring menyediakan pilihan **Antrean** dan **Spreadsheet**. Mode Spreadsheet memiliki tombol **Atur kolom** untuk menampilkan atau menyembunyikan kolom A–V; pengaturan awal menyembunyikan K–M dan pilihan disimpan per PIC di browser. Urutan awal adalah Kode Toko → Nama AC → PIC (A–Z). Setiap kolom yang tampil memiliki filter nilai dan urutan, termasuk untuk menyembunyikan DONE. Tabel memiliki header tetap, navigasi sel, salin TSV sesuai kolom tampil, pagination, dan akses pesan/lampiran untuk pesanan aktif.
 - PIC memilih nama tanpa akun pribadi. Preferensi template, tema, dan desain lampiran disimpan bersama per PIC di Supabase.
 - REG dan DS mengikuti tab tanggal Asia/Jakarta. Antrean mendahulukan DS. Pesanan DONE dapat dilihat melalui filter mode Spreadsheet, tetapi tidak masuk antrean, pesan, atau gambar.
 - Akun Google pengelola dapat dihubungkan oleh super admin untuk membaca sumber melalui Sheets API. Status dan Kendala dapat diubah sesuai pengaturan admin.

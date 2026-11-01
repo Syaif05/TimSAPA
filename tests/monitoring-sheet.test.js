@@ -5,7 +5,7 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import Papa from 'papaparse'
 import { transformWithOxc } from 'vite'
-import { filterMonitoringGroups, filterSpreadsheetEntries, matchesSla, SHEET_COLUMNS, VISIBLE_SHEET_COLUMNS, sortSpreadsheetColumn, spreadsheetEntries, spreadsheetRows, spreadsheetTsv } from '../src/utils/monitoringView.js'
+import { filterMonitoringGroups, filterSpreadsheetEntries, matchesSla, normalizeHiddenSheetColumns, SHEET_COLUMNS, SHEET_COLUMN_VISIBILITY_KEY, VISIBLE_SHEET_COLUMNS, sortSpreadsheetColumn, spreadsheetEntries, spreadsheetRows, spreadsheetTsv, visibleSheetColumns } from '../src/utils/monitoringView.js'
 import { renderTemplate } from '../src/utils/templateEngine.js'
 const rows = [
   { id:'a',sheetRow:8,source:'DS',pic:'ANA',jam:'08.00',shipment:'TEST-DS-8',kodeToko:'D8',namaToko:'CONTOH 8',sla:'7. > 12 Jam',sheetStatus:'Proses' },
@@ -64,6 +64,15 @@ test('column checkboxes filter DONE and combine with other columns without chang
   assert.ok(!spreadsheetTsv(withoutDone,{includeDone:true}).includes('TEST-DONE'))
   assert.equal(sortSpreadsheetColumn(entries,'kodeToko','desc')[0].row.kodeToko,'R2')
 })
+test('column visibility keeps source letters and copies only selected columns', () => {
+  const columns = visibleSheetColumns(['jam','noAc','namaAc','kodeToko','namaToko','cabang','region','shipment','namaKonsumen','sla','noAm','podAc','apvAm','pic','sheetStatus','kondisiMotor','jumlahPersonil','namaPejabat','kendala','grouping','gli'])
+  assert.deepEqual(columns.map(column => column.letter), ['K'])
+  assert.deepEqual(normalizeHiddenSheetColumns(['unknown','jam','jam']), ['jam'])
+  assert.equal(visibleSheetColumns(SHEET_COLUMNS.map(column => column.key)).length, VISIBLE_SHEET_COLUMNS.length)
+  const tsv = spreadsheetTsv(spreadsheetRows(rows,groups), { includeDone: true, columns })
+  assert.equal(tsv.split('\n')[0], 'Sumber\tNama AM')
+  assert.ok(!tsv.includes('Shipment'))
+})
 
 // Compile the real JSX and dependencies, preserving shared module identity.
 const compiled=new Map()
@@ -106,6 +115,16 @@ test('actual spreadsheet DOM caps rows per page, hides K–M and can render DONE
   assert.ok(doneHtml.includes('TEST-DONE'))
   const done=spreadsheetRows([...many,rows[2]],[],{},'','DONE')
   assert.deepEqual(done.map(entry=>entry.row.shipment),['TEST-DONE'])
+})
+test('spreadsheet restores the PIC browser column selection', async () => {
+  const {MonitoringSheet}=await import(await moduleUrl('../src/components/MonitoringSheet.jsx'))
+  const storage={getItem:key=>key===SHEET_COLUMN_VISIBILITY_KEY ? JSON.stringify(['jam','sheetStatus']) : null}
+  const html=renderToStaticMarkup(React.createElement(MonitoringSheet,{rows,groups,storage,filterKey:'saved'}))
+  assert.ok(html.includes('Atur kolom spreadsheet'))
+  assert.ok(!html.includes('Filter kolom Jam'))
+  assert.ok(!html.includes('Filter kolom Status'))
+  assert.ok(html.includes('Filter kolom Nama AM'))
+  assert.ok(html.includes('>K</th>'))
 })
 test('Buka chat stays clickable with a valid number while contacts are syncing', async () => {
   const {AcDetailPanel}=await import(await moduleUrl('../src/components/AcDetailPanel.jsx'))
