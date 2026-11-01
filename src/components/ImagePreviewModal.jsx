@@ -1,10 +1,14 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Download, Copy, Check } from 'lucide-react'
 
 export function ImagePreviewModal({ isOpen, onClose, dataUrl, acName, onCopy, isCopied }) {
+  const dialog = useRef(null)
+  useEffect(() => { if (isOpen && dataUrl && dialog.current && !dialog.current.open) dialog.current.showModal() }, [isOpen, dataUrl])
   if (!isOpen || !dataUrl) return null
 
-  return (
+  return createPortal(
+    <dialog ref={dialog} className="image-preview-dialog" aria-label={`Pratinjau lampiran ${acName}`} onClose={onClose} onCancel={event => { event.preventDefault(); onClose() }}>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
       <div className="relative bg-white dark:bg-slate-900 rounded-xl max-w-5xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Header Modal */}
@@ -70,5 +74,6 @@ export function ImagePreviewModal({ isOpen, onClose, dataUrl, acName, onCopy, is
         </div>
       </div>
     </div>
+    </dialog>, document.body,
   )
 }

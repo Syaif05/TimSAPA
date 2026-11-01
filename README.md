@@ -10,6 +10,7 @@ Halaman utama: `http://localhost:5173/`. Halaman pengelola: `/admin`, terpisah d
 
 ## Perilaku aplikasi
 
+- Monitoring menyediakan pilihan **Antrean** dan **Spreadsheet**. Mode Spreadsheet mengikuti kolom A–V sumber, memiliki header tetap, navigasi sel, salin TSV, pagination, serta akses pesan/lampiran. Pilihan tampilan diingat per PIC pada browser ini.
 - PIC memilih nama tanpa akun pribadi. Preferensi template, tema, dan desain lampiran disimpan bersama per PIC di Supabase.
 - REG dan DS mengikuti tab tanggal Asia/Jakarta. DS tampil lebih dahulu. Pesanan DONE hanya dihitung dalam rekap dan tidak masuk antrean, pesan, atau gambar.
 - Akun Google pengelola dapat dihubungkan oleh super admin untuk membaca sumber melalui Sheets API. Status dan Kendala dapat diubah sesuai pengaturan admin.
