@@ -9,7 +9,8 @@ test('Data Studio CSV produces the required output order and REG/DS split', () =
   assert.equal(rows.filter(row => row.source === 'REG').length, 1)
   assert.equal(rows.filter(row => row.source === 'DS').length, 1)
   assert.deepEqual(rows[0], { source:'REG', noAc:'', namaAc:'ANDI GUNAWAN', kodeToko:'1D92', namaToko:'TEMBESI 2', cabang:'DC JAMBI', region:'Reg 5 HSS', shipment:'S-261101-AGVXZBH', namaKonsumen:'FIRDHA', sla:'7. > 12 Jam', namaAm:'SAMUD', noAm:'' })
-  assert.equal(tarikTsv(rows.slice(0,1)).split('\n')[0], 'No AC\tNama AC\tKode Toko\tNama Toko\tCabang\tRegion\tShipment\tNama Konsumen\tSLA\tNama AM\tNo AM')
+  assert.equal(tarikTsv(rows.slice(0,1)).split('\n')[0], '\tANDI GUNAWAN\t1D92\tTEMBESI 2\tDC JAMBI\tReg 5 HSS\tS-261101-AGVXZBH\tFIRDHA\t7. > 12 Jam\tSAMUD\t')
+  assert.ok(!tarikHtml(rows.slice(0,1)).includes('<thead>'))
   assert.ok(tarikHtml(rows.slice(0,1)).includes('font-size:11pt'))
 })
 
