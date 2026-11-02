@@ -1,3 +1,4 @@
+import { cleanReportDesign } from '../src/utils/reportDesign.js'
 import { createGoogleOAuth, tokenCipher, randomToken, digest, httpError, normalizeEmail, SHEETS_SCOPE } from './googleOAuth.js'
 import { createCloudDatabase, queryPath } from './cloudDatabase.js'
 import { createGoogleSheetsApi } from './googleSheetsApi.js'
@@ -120,6 +121,22 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
           } catch (error) {
             return json({ enabled: true, configured: true, backendReady: false, admin: false, connected: false, canEdit: false, backendError: error.status ? error.message : 'Penyimpanan Supabase belum dapat diperiksa. Coba lagi setelah jaringan pulih.' })
           }
+        }
+        if (path === '/api/report-design') {
+          if (request.method === 'GET') {
+            const record = (await database(queryPath('sapa_source_cache', { cache_key: 'eq.settings:followup-design', select: 'snapshot' })))[0]
+            return json(record?.snapshot || { design: null })
+          }
+          if (request.method !== 'PUT') throw httpError(405, 'Metode tidak tersedia.')
+          sameOrigin(request)
+          const body = await bodyOf(request)
+          const pic = String(body.pic || '').trim().replace(/\s+/g, ' ').toUpperCase()
+          if (!pic || !(await database(queryPath('sapa_pic_profiles', { name: `eq.${pic}`, select: 'name' }))).length) throw httpError(403, 'Pilih PIC terdaftar sebelum menyimpan desain.')
+          let design
+          try { design = cleanReportDesign(body.design) } catch (error) { throw httpError(400, error.message) }
+          const snapshot = { design, savedBy: pic, savedAt: new Date(now()).toISOString() }
+          await database('sapa_source_cache?on_conflict=cache_key', { method: 'POST', body: { cache_key: 'settings:followup-design', snapshot, expires_at: '9999-12-31T00:00:00Z' }, prefer: 'resolution=merge-duplicates,return=minimal' })
+          return json(snapshot)
         }
         if (!path.startsWith('/api/auth/') && !path.startsWith('/api/admin/') && path !== '/api/orders' && !(enabled && ['/api/sheets', '/api/contacts'].includes(path))) return null
         requireConfig()

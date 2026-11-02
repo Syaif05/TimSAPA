@@ -21,3 +21,9 @@ Hasil dapat disalin sebagai gambar atau diunduh sebagai PNG, untuk kedua tabel a
 Empat workbook pada `HasilLaporan/DataMentah` berisi 7.372, 1.586, 1.586, dan 319 baris shipment. Dua file bernama `(3)` identik, sehingga harus digunakan salah satunya. Workbook terbesar mencakup 19–26 Oktober 2026. Seluruh 7 gambar contoh diperiksa: terdapat variasi urutan alfabet/jumlah dan pilihan nama berbeda antara ringkasan dan rincian. Filter lengkap pada gambar tidak tersedia dan angka gambar tidak seluruhnya cocok dengan workbook, sehingga tidak diasumsikan sebagai pasangan data identik.
 
 Logika agregasi berada di `src/utils/hasilLaporan.js`; UI di `src/components/HasilLaporanView.jsx`. Pengujian mencakup total toko lintas petugas, nilai kosong, filter terpisah, tanggal, kategori, dan COUNT shipment.
+
+## Desain bersama
+
+Tema Biru, Hijau, Gelap, atau Minimal dapat dipilih beserta waktu Siang/Sore/Malam, visibilitas judul/tanggal/waktu/tabel/Grand Total, ukuran font, garis sel, angka nol, dan catatan. Tombol Simpan untuk semua PIC mengirim hanya desain, tanpa data mentah atau filter nama/tanggal, ke `/api/report-design`. Penyimpanan terakhir berlaku untuk seluruh PIC. Desain dimuat saat menu dibuka dan diperiksa setiap 30 detik; draf yang sedang diedit tidak ditimpa otomatis. Gunakan desain terbaru untuk mengambil versi tersimpan secara eksplisit.
+
+Snapshot desain disimpan server-side pada `sapa_source_cache`, key `settings:followup-design`, tanpa kedaluwarsa operasional (tahun 9999). Pembersihan cache yang hanya menghapus entri kedaluwarsa tidak menghapus desain ini. Penulisan memeriksa origin dan nama PIC terdaftar, sesuai model profil bersama aplikasi. Nama penyimpan dan waktu simpan ditampilkan di UI.

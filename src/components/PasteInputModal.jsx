@@ -1,3 +1,4 @@
+import { FileUpload } from './FileUpload'
 import { InfoButton } from './InfoButton'
 import React, { useState, useMemo } from 'react'
 import {
@@ -237,25 +238,7 @@ export function PasteInputModal({ isOpen, onClose, onImportData, existingRows = 
               />
             </div>
           ) : (
-            <div className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-3xl p-8 text-center bg-white dark:bg-zinc-950/40 hover:bg-zinc-50 transition-colors">
-              <UploadCloud size={40} className="mx-auto text-purple-500 mb-2" />
-              <p className="text-sm font-extrabold text-zinc-800 dark:text-zinc-200 mb-1">
-                Pilih atau seret file MONITORING SAPA 3 ke sini
-              </p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-                Mendukung spreadsheet Excel (.xlsx, .xls) atau Comma/Tab Separated (.csv, .tsv)
-              </p>
-              <label className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-full bg-zinc-900 hover:bg-zinc-800 text-white cursor-pointer shadow-sm transition-all">
-                <FileSpreadsheet size={15} />
-                <span>Pilih File Spreadsheet</span>
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv,.tsv,.txt"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-            </div>
+            <FileUpload accept=".xlsx,.xls,.csv,.tsv,.txt" onChange={handleFileUpload} title="Unggah Monitoring SAPA 3" hint="Seret spreadsheet Excel, CSV, atau TSV untuk menyiapkan data monitoring."/>
           )}
 
           {/* Opsi Anti-Duplikat & Mode Penggabungan Data */}

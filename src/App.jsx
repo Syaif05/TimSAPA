@@ -362,7 +362,7 @@ function WorkspaceApp() {
           <TarikDataView contacts={masterContacts} contactsReady={contactsConnection.ready} monitoringMode={sheets.mode} showToast={showToast} />
         )}
 
-        {(activeTab === 'hasil-laporan' || reportVisited) && <div hidden={activeTab !== 'hasil-laporan'}><HasilLaporanView storage={storage} showToast={showToast}/></div>}
+        {(activeTab === 'hasil-laporan' || reportVisited) && <div hidden={activeTab !== 'hasil-laporan'}><HasilLaporanView pic={profile.name} storage={storage} showToast={showToast}/></div>}
 
         {/* Tab 3: Template Settings */}
         {activeTab === 'templates' && (

@@ -1,5 +1,6 @@
+import { FileUpload } from './FileUpload'
 import React, { useMemo, useState } from 'react'
-import { ClipboardCopy, FileUp } from 'lucide-react'
+import { ClipboardCopy } from 'lucide-react'
 import { filterNewTarikRows, parseTarikCsv, TARIK_COLUMNS, tarikHtml, tarikTsv } from '../utils/tarikData.js'
 import { jakartaDate } from '../utils/sheetsConfig.js'
 
@@ -63,7 +64,7 @@ export function TarikDataView({ contacts = [], contactsReady = false, monitoring
   return <section className="tarik-data-page">
     <div className="page-heading"><div><p className="eyebrow">SAPA / OPERASIONAL</p><h1>Tarik Data</h1><p>Unggah CSV mentah dari Data Studio, periksa hasil REG dan DS, lalu salin ke spreadsheet masing-masing.</p></div></div>
     <div className="tarik-upload-panel">
-      <label className="tarik-upload"><FileUp size={20}/><span><strong>Pilih file CSV mentah</strong><small>{filename || 'Format data dari Data Studio (.csv)'}</small></span><input type="file" accept=".csv,text/csv" onChange={load} aria-label="Unggah CSV mentah"/></label>
+      <FileUpload accept=".csv" onChange={load} filename={filename} busy={checking} disabled={checking} title="Unggah CSV Data Studio" hint="Seret CSV mentah ke sini untuk memeriksa shipment REG dan DS."/>
       <p>Shipment dibandingkan dengan semua PIC dan semua status pada Monitoring {monitoringMode === 'daily' ? 'hari ini' : 'terhubung'}, termasuk DONE. Duplikat dalam CSV juga diabaikan. Salinan hanya berisi baris baru, tanpa header, berformat Calibri 11 pt.</p>
       {!contactsReady && <p className="tarik-warning">Sumber kontak belum siap. No AC dan No AM akan kosong sampai data kontak tersedia; unggah ulang CSV setelah kontak terhubung.</p>}
       {error && <p className="tarik-error" role="alert">{error}</p>}

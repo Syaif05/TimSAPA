@@ -277,3 +277,17 @@ test('order edit checks row identity, expected values and column whitelist; send
   assert.equal(audit.outcome, 'completed'); assert.equal(audit.actor, 'PIC:PIC TEST')
   assert.equal(f.database.tables.get('sapa_source_cache').length, 0)
 })
+
+test('report designs are shared across PICs and latest explicit save wins', async () => {
+ const {app,database}=appFixture()
+ database.tables.get('sapa_pic_profiles').push({name:'SECOND PIC'})
+ const save=(pic,title)=>app.handle(req('/api/report-design',{method:'PUT',body:{pic,design:{title,theme:'green'}}}))
+ assert.equal((await save('UNKNOWN','X')).status,403)
+ assert.equal((await app.handle(req('/api/report-design',{method:'PUT',origin:'https://evil.example',body:{pic:'PIC TEST',design:{}}}))).status,403)
+ assert.equal((await save('PIC TEST','First')).status,200)
+ assert.equal((await save('SECOND PIC','Latest')).status,200)
+ const record=await (await app.handle(req('/api/report-design'))).json()
+ assert.equal(record.design.title,'Latest');assert.equal(record.savedBy,'SECOND PIC')
+ assert.equal(record.design.theme,'green')
+ assert.equal((await app.handle(req('/api/report-design',{method:'PUT',body:{pic:'PIC TEST',design:{showSummary:false,showDetail:false}}}))).status,400)
+})

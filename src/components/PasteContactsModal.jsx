@@ -1,3 +1,4 @@
+import { FileUpload } from './FileUpload'
 import React, { useState } from 'react'
 import {
   X,
@@ -200,23 +201,7 @@ export function PasteContactsModal({ isOpen, onClose, onImportContacts, showToas
               />
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-3xl p-8 text-center bg-white dark:bg-zinc-900/50 hover:border-purple-500 transition-colors">
-                <FileSpreadsheet size={36} className="mx-auto text-purple-500 mb-2 opacity-80" />
-                <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                  Pilih file Excel (.xlsx, .xls) atau CSV Master Kontak
-                </p>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
-                  Sheet 'KONTAK TOKO BARU' atau 'KONTAK PEGAWAI ALFA' akan otomatis dibaca secara akurat.
-                </p>
-                <input
-                  type="file"
-                  accept=".xlsx, .xls, .csv"
-                  onChange={handleFileUpload}
-                  className="mt-4 block mx-auto text-xs text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-[#FDE047] file:text-zinc-900 hover:file:bg-[#FACC15] cursor-pointer"
-                />
-              </div>
-            </div>
+            <FileUpload accept=".xlsx,.xls,.csv" onChange={handleFileUpload} title="Unggah Master Kontak" hint="Sheet KONTAK TOKO BARU atau KONTAK PEGAWAI ALFA dibaca otomatis."/>
           )}
 
           {/* Mode Import: Timpa vs Tambahkan */}
