@@ -41,7 +41,7 @@ export function TarikDataView({ contacts = [], contactsReady = false, showToast 
     {rows.length > 0 && <>
       <div className="tarik-results-head"><div><strong>Hasil {filename}</strong><span>{rows.length} pesanan · {rows.filter(row => row.source === 'REG').length} REG · {rows.filter(row => row.source === 'DS').length} DS · {rows.filter(row => !row.noAc).length} tanpa No AC · {rows.filter(row => !row.noAm).length} tanpa No AM</span></div><div className="tarik-source-tabs" role="group" aria-label="Jenis hasil"><button aria-pressed={source === 'REG'} onClick={() => setSource('REG')}>REG</button><button aria-pressed={source === 'DS'} onClick={() => setSource('DS')}>DS</button></div><button className="primary-button" disabled={!shown.length} onClick={copy}><ClipboardCopy size={15}/> Salin {source}</button></div>
       <div className="tarik-table-wrap"><table className="tarik-table"><thead><tr>{TARIK_COLUMNS.map(([field,label]) => <th key={field}>{label}</th>)}</tr></thead><tbody>{shown.slice(0,100).map((row,index) => <tr key={`${row.shipment}-${index}`}>{TARIK_COLUMNS.map(([field]) => <td key={field} title={row[field]}>{row[field] || '—'}</td>)}</tr>)}</tbody></table></div>
-      <p className="tarik-result-note">Pratinjau menampilkan maksimal 100 baris. Tombol Salin menyertakan seluruh {shown.length} baris {source} beserta header.</p>
+      <p className="tarik-result-note">Pratinjau menampilkan maksimal 100 baris. Tombol Salin hanya menyalin seluruh {shown.length} baris data {source}, tanpa nama kolom.</p>
     </>}
   </section>
 }
