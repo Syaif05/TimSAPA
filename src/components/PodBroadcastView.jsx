@@ -76,7 +76,7 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
 
   // 4. Template Pesan POD
   const [template, setTemplate] = usePicSetting('podTemplate', DEFAULT_POD_TEMPLATE)
-  const [delaySeconds, setDelaySeconds] = usePicSetting('podDelay', 8)
+  
   const [useSameTab, setUseSameTab] = usePicSetting('podUseSameTab', true)
   const [soundEnabled, setSoundEnabled] = usePicSetting('podSoundEnabled', true)
   const [isPopupBlocked, setIsPopupBlocked] = useState(false)
@@ -86,9 +86,9 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
   const [tempPhoneInput, setTempPhoneInput] = useState('')
 
   // 6. State Auto-Sequence Engine
-  const [isAutoRunning, setIsAutoRunning] = useState(false)
-  const [isPaused, setIsPaused] = useState(false)
-  const [countdown, setCountdown] = useState(delaySeconds)
+  const isAutoRunning = false
+  
+  const countdown = 0
   const [currentQueueIndex, setCurrentQueueIndex] = useState(0)
 
   // 7. Filter & Search
@@ -214,114 +214,6 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
     return true
   }
 
-  // -------------------------------------------------------------
-  // AUTO SEQUENCE ENGINE (KIRIM OTOMATIS BERGANTIAN DENGAN JEDA)
-  // -------------------------------------------------------------
-  const autoRunningRef = useRef(isAutoRunning)
-  autoRunningRef.current = isAutoRunning
-  const isPausedRef = useRef(isPaused)
-  isPausedRef.current = isPaused
-
-  const handleStartAuto = () => {
-    if (eligibleQueue.length === 0) {
-      showToast?.('Semua AC yang memiliki nomor terdaftar sudah terkirim!', 'info')
-      return
-    }
-
-    const firstItem = eligibleQueue[0]
-    setIsAutoRunning(true)
-    setIsPaused(false)
-    setCountdown(delaySeconds)
-
-    // Langsung buka AC pertama saat tombol ditekan (User Gesture - Terhindar dari blokir popup)
-    if (firstItem) {
-      setSelectedAcKey(firstItem.acKey)
-      dispatchWhatsApp(firstItem)
-    }
-
-    if (eligibleQueue.length <= 1) {
-      setIsAutoRunning(false)
-      if (soundEnabled) {
-        setTimeout(() => playChimeSound('complete'), 500)
-      }
-      showToast?.('🎉 Selesai! Semua AC yang terdaftar berhasil dikirimkan pesan POD.', 'success')
-      return
-    }
-
-    showToast?.(`Kirim otomatis dimulai! AC berikutnya akan dibuka dalam ${delaySeconds} detik...`, 'info')
-  }
-
-  const handlePauseAuto = () => {
-    setIsPaused(true)
-    showToast?.('Pengiriman otomatis dijeda.', 'info')
-  }
-
-  const handleResumeAuto = () => {
-    setIsPaused(false)
-    showToast?.('Melanjutkan pengiriman otomatis...', 'info')
-  }
-
-  const handleStopAuto = () => {
-    setIsAutoRunning(false)
-    setIsPaused(false)
-    setCountdown(delaySeconds)
-    setCurrentQueueIndex(0)
-    showToast?.('Pengiriman otomatis dihentikan.', 'info')
-  }
-
-  const handleSkipCurrent = () => {
-    if (!isAutoRunning || eligibleQueue.length === 0) return
-    const currentItem = eligibleQueue[currentQueueIndex]
-    if (currentItem) {
-      setStatusMap((prev) => ({
-        ...prev,
-        [currentItem.acKey]: { status: 'skipped', skippedAt: Date.now() },
-      }))
-      showToast?.(`Melewati pengiriman untuk ${currentItem.namaAc}`, 'info')
-    }
-    setCountdown(delaySeconds)
-  }
-
-  // Efek Timer Countdown Pengiriman Otomatis
-  useEffect(() => {
-    if (!isAutoRunning || isPaused) return
-
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev > 1) {
-          return prev - 1
-        }
-
-        // Countdown mencapai 1 -> waktu dispatch!
-        if (eligibleQueue.length > 0) {
-          const targetItem = eligibleQueue[0] // Selalu ambil antrean pertama yang belum terkirim
-          if (targetItem) {
-            setSelectedAcKey(targetItem.acKey)
-            dispatchWhatsApp(targetItem)
-          }
-
-          // Cek apakah antrean sudah selesai
-          if (eligibleQueue.length <= 1) {
-            setIsAutoRunning(false)
-            if (soundEnabled) {
-              playChimeSound('complete')
-            }
-            showToast?.('🎉 Selesai! Semua AC yang terdaftar berhasil dikirimkan pesan POD.', 'success')
-            return delaySeconds
-          }
-        } else {
-          setIsAutoRunning(false)
-          return delaySeconds
-        }
-
-        // Reset countdown untuk AC berikutnya
-        return delaySeconds
-      })
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [isAutoRunning, isPaused, eligibleQueue, delaySeconds, soundEnabled, template, useSameTab])
-
   // Shortcut Keyboard: Tekan Spasi atau Enter untuk langsung kirim AC berikutnya
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -401,7 +293,7 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
               
             </div>
             <InfoButton title="Informasi halaman">
-              Kirim pengingat jumlah pesanan yang belum di-POD ke Area Coordinator (AC) secara berurutan dengan jeda waktu otomatis
+              Kirim pengingat jumlah pesanan yang belum di-POD ke Area Coordinator (AC) secara manual melalui draf WhatsApp
             </InfoButton>
           </div>
         </div>
@@ -797,210 +689,7 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
         {/* RIGHT COLUMN (5 COLS): Auto-Dispatcher Control & Preview */}
         {/* ======================================================== */}
         <div className="lg:col-span-5 space-y-6">
-          {/* Card 1: PUSAT KONTROL AUTO-DISPATCHER (Kirim Bergantian Otomatis) */}
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className={`w-9 h-9 rounded-2xl flex items-center justify-center font-bold ${
-                  isAutoRunning
-                    ? 'bg-amber-500 text-white animate-pulse'
-                    : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
-                }`}>
-                  <Play size={16} />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-sm text-zinc-900 dark:text-white">
-                    Sistem Kirim Otomatis (Auto Sequence)
-                  </h3>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    Kirim pesan bergantian dengan jeda waktu anti-banned
-                  </p>
-                </div>
-              </div>
-
-              {/* Status Badge */}
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                isAutoRunning
-                  ? isPaused
-                    ? 'bg-zinc-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                    : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 animate-pulse'
-                  : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
-              }`}>
-                {isAutoRunning ? (isPaused ? 'Dijeda' : 'Sedang Berjalan') : 'Siap'}
-              </span>
-            </div>
-
-            {/* Countdown Banner saat Berjalan */}
-            {isAutoRunning && currentAutoItem && (
-              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-amber-800 dark:text-amber-300">
-                  <span>Target AC Berikutnya:</span>
-                  <span className="text-xl font-black text-zinc-500 dark:text-amber-400 font-mono">
-                    {countdown} Detik
-                  </span>
-                </div>
-                <div className="font-extrabold text-base text-zinc-900 dark:text-white flex items-center justify-between">
-                  <span>{currentAutoItem.namaAc}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
-                    {currentAutoItem.shipmentCount} Pesanan POD
-                  </span>
-                </div>
-                <div className="w-full bg-amber-200/60 dark:bg-amber-900/60 h-2 rounded-full overflow-hidden">
-                  <div
-                    className="bg-amber-500 h-full transition-all duration-1000 ease-linear rounded-full"
-                    style={{ width: `${((delaySeconds - countdown) / delaySeconds) * 100}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Slider Pengaturan Waktu Jeda */}
-            <div className="space-y-2 pt-1">
-              <div className="flex items-center justify-between text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                <span className="flex items-center gap-1.5">
-                  <Clock size={13} className="text-zinc-400" />
-                  Waktu Jeda Antar Pengiriman:
-                </span>
-                <span className="text-zinc-500 dark:text-amber-400 font-black">
-                  {delaySeconds} Detik
-                </span>
-              </div>
-              <input
-                type="range"
-                min="3"
-                max="20"
-                step="1"
-                disabled={isAutoRunning}
-                value={delaySeconds}
-                onChange={(e) => setDelaySeconds(Number(e.target.value))}
-                className="w-full accent-amber-500 cursor-pointer disabled:opacity-50"
-              />
-              <div className="flex justify-between text-[10px] text-zinc-400">
-                <span>3s (Cepat)</span>
-                <span className="text-zinc-500 font-semibold">8s (Aman &amp; Direkomendasikan)</span>
-                <span>20s (Sangat Santai)</span>
-              </div>
-            </div>
-
-            {/* Pengaturan Ekstra (Checkboxes) */}
-            <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 text-xs">
-              <label className="flex items-center gap-2 cursor-pointer text-zinc-700 dark:text-zinc-300">
-                <input
-                  type="checkbox"
-                  checked={useSameTab}
-                  onChange={(e) => setUseSameTab(e.target.checked)}
-                  className="rounded text-amber-500 focus:ring-amber-500"
-                />
-                <span>Gunakan 1 tab WhatsApp Web yang sama (Rekomendasi agar browser tidak penuh 30 tab)</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer text-zinc-700 dark:text-zinc-300">
-                <input
-                  type="checkbox"
-                  checked={soundEnabled}
-                  onChange={(e) => setSoundEnabled(e.target.checked)}
-                  className="rounded text-amber-500 focus:ring-amber-500"
-                />
-                <span className="flex items-center gap-1.5">
-                  {soundEnabled ? <Volume2 size={13} className="text-emerald-500" /> : <VolumeX size={13} className="text-zinc-400" />}
-                  Putar notifikasi suara saat pesan terkirim &amp; selesai
-                </span>
-              </label>
-            </div>
-
-            {/* Tombol Kontrol Auto Dispatcher */}
-            <div className="pt-2 flex flex-wrap items-center gap-2">
-              {!isAutoRunning ? (
-                <button
-                  onClick={handleStartAuto}
-                  disabled={eligibleQueue.length === 0}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-full text-xs font-bold transition-all shadow-sm ${
-                    eligibleQueue.length > 0
-                      ? 'bg-[#FEE500] hover:bg-[#FDD800] text-zinc-950 cursor-pointer'
-                      : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed shadow-none'
-                  }`}
-                >
-                  <Play size={15} className="fill-current" />
-                  <span>Mulai Kirim Otomatis ({eligibleQueue.length} AC)</span>
-                </button>
-              ) : (
-                <>
-                  {isPaused ? (
-                    <button
-                      onClick={handleResumeAuto}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-3 px-3 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm"
-                    >
-                      <Play size={14} className="fill-current" />
-                      <span>Lanjutkan</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handlePauseAuto}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-3 px-3 rounded-full text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white cursor-pointer shadow-sm"
-                    >
-                      <Pause size={14} className="fill-current" />
-                      <span>Jeda</span>
-                    </button>
-                  )}
-
-                  <button
-                    onClick={handleSkipCurrent}
-                    className="flex items-center gap-1 py-3 px-3.5 rounded-full text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 cursor-pointer"
-                    title="Lewati AC ini dan lanjut ke berikutnya"
-                  >
-                    <SkipForward size={14} />
-                    <span>Lewati</span>
-                  </button>
-
-                  <button
-                    onClick={handleStopAuto}
-                    className="flex items-center gap-1 py-3 px-3.5 rounded-full text-xs font-semibold bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-900 cursor-pointer"
-                    title="Hentikan pengiriman otomatis"
-                  >
-                    <Square size={13} className="fill-current" />
-                    <span>Stop</span>
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Banner Peringatan Pop-up Blocker */}
-            {isPopupBlocked && (
-              <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 space-y-2">
-                <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-300">
-                  <AlertTriangle size={16} className="text-zinc-500 shrink-0" />
-                  <span>Jendela Pop-Up WhatsApp Diblokir oleh Browser!</span>
-                </div>
-                <p className="text-[11px] leading-relaxed">
-                  Browser mendeteksi pembukaan tab otomatis dan mencegatnya. Cara mengizinkannya:
-                  <br />• Klik ikon gembok / popup di samping kolom URL browser ➔ Pilih <b>"Izinkan Pop-up"</b>.
-                  <br />• <b>Atau cara lebih cepat &amp; pasti:</b> Cukup tekan tombol <b>[Spasi]</b> atau <b>[Enter]</b> di bawah untuk membuka chat WA tiap AC secara bergantian!
-                </p>
-              </div>
-            )}
-
-            {/* Tombol Alternatif Cepat 1-Klik / Tekan Spasi */}
-            {eligibleQueue.length > 0 && (
-              <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const nextItem = eligibleQueue[0]
-                    if (nextItem) {
-                      setSelectedAcKey(nextItem.acKey)
-                      dispatchWhatsApp(nextItem)
-                    }
-                  }}
-                  className="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl text-xs font-black bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md hover:shadow-lg transition-all cursor-pointer"
-                >
-                  <Send size={15} />
-                  <span>🚀 Buka WA: {eligibleQueue[0]?.namaAc} ({eligibleQueue[0]?.shipmentCount} POD) • [Spasi / Enter]</span>
-                </button>
-              </div>
-            )}
-
-            <InfoButton title="Cara kerja antrean POD"><p>Antrean membuka draf WhatsApp secara bergantian. Anda tetap menekan Kirim pada setiap chat.</p><p>Jeda antar-AC: {delaySeconds} detik. Izinkan pop-up untuk alur ini. Jeda tidak menjamin nomor terhindar dari pemblokiran.</p></InfoButton>
-          </div>
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-zinc-200/80 dark:border-zinc-800 space-y-3"><h2 className="font-bold text-sm">Kirim pengingat POD manual</h2><p className="text-xs text-zinc-500">Buka draf untuk AC berikutnya, periksa pesan, lalu tekan Kirim di WhatsApp.</p><button className="primary-button" disabled={!eligibleQueue.length} onClick={() => { const item=eligibleQueue[0]; if(item){setSelectedAcKey(item.acKey);dispatchWhatsApp(item)} }}><Send size={15}/> {eligibleQueue.length ? `Buka WA: ${eligibleQueue[0].namaAc}` : 'Tidak ada antrean'}</button></div>
 
           {/* Card 2: LIVE PREVIEW PESAN WHATSAPP & EDIT TEMPLATE */}
           <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-4">

@@ -76,6 +76,8 @@ function WorkspaceApp() {
 
   // 2. Active Tab
   const [activeTab, setActiveTab] = useState('workspace')
+  const [tarikVisited, setTarikVisited] = useState(false)
+  useEffect(() => { if (activeTab === 'tarik-data') setTarikVisited(true) }, [activeTab])
   const [reportVisited, setReportVisited] = useState(false)
   useEffect(() => { if (activeTab === 'hasil-laporan') setReportVisited(true) }, [activeTab])
   const [settingsTab, setSettingsTab] = useState('appearance')
@@ -358,9 +360,9 @@ function WorkspaceApp() {
           <PodBroadcastView masterContacts={masterContacts} contactsReady={contactsConnection.ready} showToast={showToast} />
         )}
 
-        {activeTab === 'tarik-data' && (
+        {(activeTab === 'tarik-data' || tarikVisited) && (<div hidden={activeTab !== 'tarik-data'}>
           <TarikDataView contacts={masterContacts} contactsReady={contactsConnection.ready} monitoringMode={sheets.mode} showToast={showToast} />
-        )}
+        </div>)}
 
         {(activeTab === 'hasil-laporan' || reportVisited) && <div hidden={activeTab !== 'hasil-laporan'}><HasilLaporanView pic={profile.name} storage={storage} showToast={showToast}/></div>}
 
