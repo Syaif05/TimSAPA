@@ -166,7 +166,7 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
           return json(await sheets.updateOrder(body, `PIC:${pic}`))
         }
         if (path === '/api/sheets' && request.method === 'GET') {
-          const data = await sheets.monitoring({ mode: url.searchParams.get('mode') || 'daily', date: url.searchParams.get('date') || undefined })
+          const data = await sheets.monitoring({ mode: url.searchParams.get('mode') || 'daily', date: url.searchParams.get('date') || undefined, force: url.searchParams.get('fresh') === '1' })
           const etag = `"${data.revision}:${!!data.stale}"`
           const headers = { ETag: etag, 'X-SAPA-Fetched-At': data.fetchedAt }
           if (!data.stale && request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers: { ...headers, 'Cache-Control': 'no-store' } })
