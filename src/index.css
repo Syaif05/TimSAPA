@@ -15,6 +15,7 @@
 .tarik-results-head > div:first-child { display: grid; gap: 2px; margin-right: auto; }
 .tarik-results-head strong { font-size: 13px; }
 .tarik-results-head span, .tarik-result-note { color: var(--muted); font-size: 11px; }
+.tarik-copy-report { padding: 10px 13px; border: 1px solid #86efac; border-radius: 9px; background: #f0fdf4; color: #166534; font-size: 12px; }
 .tarik-source-tabs { display: flex; gap: 3px; padding: 3px; background: var(--soft); border-radius: 8px; }
 .tarik-source-tabs button { padding: 5px 12px; border-radius: 6px; font-size: 12px; }
 .tarik-source-tabs button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 4px #0002; }

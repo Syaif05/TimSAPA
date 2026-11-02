@@ -17,7 +17,7 @@ Halaman utama: `http://localhost:5173/`. Halaman pengelola: `/admin`, terpisah d
 - Login admin menggunakan Google OIDC, PKCE, state sekali pakai, nonce, cookie HttpOnly, dan daftar email tepercaya di server.
 - Pilihan PIC bukan autentikasi pribadi. Ketika edit PIC aktif, pengguna situs dapat memilih PIC terdaftar dan mengubah kolom yang diizinkan. Audit mencatat PIC yang dipilih.
 - Pesan WhatsApp tetap dikirim manual. Gambar tabel dibuat di browser.
-- Menu **Tarik Data** menerima CSV mentah dari Data Studio, memisahkan REG dan DS menurut awalan nama toko `DS`, menyusun 11 kolom sesuai contoh `TarikData/Hasil_Narik_Data.xlsx`, dan menyediakan salin tabel ke spreadsheet. No AC dan No AM dicocokkan dari sumber kontak SAPA; yang tidak ditemukan dibiarkan kosong untuk diperiksa. Tabel dan clipboard HTML memakai Calibri 11 pt.
+- Menu **Tarik Data** menerima CSV mentah dari Data Studio, memisahkan REG dan DS menurut awalan nama toko `DS`, menyusun 11 kolom sesuai contoh `TarikData/Hasil_Narik_Data.xlsx`, dan menyediakan salin tabel ke spreadsheet. Shipment dibandingkan dengan seluruh baris Monitoring pada mode aktif (semua PIC/status, REG/DS) serta baris lain dalam CSV; hanya shipment baru yang dapat disalin. Jumlah baru, duplikat, dan penyalinan berhasil ditampilkan. No AC dan No AM dicocokkan dari sumber kontak SAPA; yang tidak ditemukan dibiarkan kosong untuk diperiksa. Tabel dan clipboard HTML memakai Calibri 11 pt.
 - Tombol **Buka chat** segera meminta ekstensi memakai tab WhatsApp Web yang sudah terbuka; pembuatan PNG tidak menahan pembukaan chat. Jika clipboard gagal, pengguna dapat menyalin atau mengunduh gambar secara terpisah.
 
 ## Deployment Vercel

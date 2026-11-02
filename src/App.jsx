@@ -356,7 +356,7 @@ function WorkspaceApp() {
         )}
 
         {activeTab === 'tarik-data' && (
-          <TarikDataView contacts={masterContacts} contactsReady={contactsConnection.ready} showToast={showToast} />
+          <TarikDataView contacts={masterContacts} contactsReady={contactsConnection.ready} monitoringMode={sheets.mode} showToast={showToast} />
         )}
 
         {/* Tab 3: Template Settings */}

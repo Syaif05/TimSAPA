@@ -36,6 +36,20 @@ export function parseTarikCsv(csv, contacts = []) {
   })
 }
 
+const shipmentKey = value => String(value ?? '').trim().toUpperCase()
+export function filterNewTarikRows(rows, monitoringRows) {
+  const existing = new Set(monitoringRows.map(row => shipmentKey(row.shipment)).filter(Boolean))
+  const seen = new Set()
+  const fresh = []
+  const duplicate = []
+  for (const row of rows) {
+    const key = shipmentKey(row.shipment)
+    if (!key || existing.has(key) || seen.has(key)) duplicate.push(row)
+    else { seen.add(key); fresh.push(row) }
+  }
+  return { fresh, duplicate }
+}
+
 const escapeTsv = value => /[\t\n\r"]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value
 export function tarikTsv(rows) {
   return rows.map(row => TARIK_COLUMNS.map(([field]) => row[field] || ''))
