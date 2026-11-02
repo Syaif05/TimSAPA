@@ -1,9 +1,9 @@
 import React from 'react'
 import { PicBadge } from '../profiles/ProfileGate'
-import { Layers, PackageCheck, SlidersHorizontal, Settings2, Sun, Moon, Plus, MessageCircle, ArrowUpRight } from 'lucide-react'
+import { Layers, PackageCheck, SlidersHorizontal, Settings2, Sun, Moon, Plus, MessageCircle, ArrowUpRight, FileInput } from 'lucide-react'
 import { requestWhatsAppTab } from '../utils/whatsappBridge'
 const items = [
-  ['workspace', 'Monitoring', Layers], ['pod', 'Broadcast POD', PackageCheck],
+  ['workspace', 'Monitoring', Layers], ['tarik-data', 'Tarik Data', FileInput], ['pod', 'Broadcast POD', PackageCheck],
   ['templates', 'Template', SlidersHorizontal], ['settings', 'Pengaturan', Settings2],
 ]
 export function Header({ activeTab, onTabChange, darkMode, onToggleDarkMode, onOpenPasteModal, showToast }) {

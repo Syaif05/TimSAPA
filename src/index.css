@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+.tarik-data-page { display: grid; gap: 18px; max-width: 100%; }
+.tarik-data-page .page-heading h1 { font-size: 25px; font-weight: 700; }
+.tarik-data-page .page-heading p:last-child { color: var(--muted); font-size: 13px; }
+.tarik-upload-panel { padding: 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+.tarik-upload { display: inline-flex; align-items: center; gap: 12px; padding: 13px 17px; border: 1px dashed var(--solid); border-radius: 10px; color: var(--solid); cursor: pointer; }
+.tarik-upload span { display: grid; gap: 2px; }
+.tarik-upload small { color: var(--muted); font-size: 11px; }
+.tarik-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.tarik-upload-panel > p { margin-top: 12px; color: var(--muted); font-size: 12px; }
+.tarik-upload-panel .tarik-warning { color: #a16207; }
+.tarik-upload-panel .tarik-error { color: #dc2626; }
+.tarik-results-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 13px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.tarik-results-head > div:first-child { display: grid; gap: 2px; margin-right: auto; }
+.tarik-results-head strong { font-size: 13px; }
+.tarik-results-head span, .tarik-result-note { color: var(--muted); font-size: 11px; }
+.tarik-source-tabs { display: flex; gap: 3px; padding: 3px; background: var(--soft); border-radius: 8px; }
+.tarik-source-tabs button { padding: 5px 12px; border-radius: 6px; font-size: 12px; }
+.tarik-source-tabs button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 4px #0002; }
+.tarik-table-wrap { max-height: 60dvh; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.tarik-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font: 11pt Calibri, Arial, sans-serif; }
+.tarik-table th, .tarik-table td { max-width: 260px; padding: 6px 9px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.tarik-table th { position: sticky; top: 0; background: var(--soft); font-weight: 700; }
+
 .workspace-date-views { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-width: 0; }
 .monitoring-view-toggle { display: inline-flex; padding: 3px; gap: 2px; background: var(--soft); border: 1px solid var(--line); border-radius: 10px; }
 .monitoring-view-toggle button { display: inline-flex; gap: 5px; align-items: center; min-height: 28px; padding: 4px 9px; border-radius: 7px; font-size: 11px; color: var(--muted); white-space: nowrap; }

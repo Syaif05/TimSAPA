@@ -10,6 +10,7 @@ import { LINKED_SHEET_DATE, jakartaDate } from './utils/sheetsConfig'
 import { Header } from './components/Header'
 import { MonitoringWorkspace } from './components/MonitoringWorkspace'
 const PodBroadcastView = lazy(() => import('./components/PodBroadcastView').then(m => ({ default: m.PodBroadcastView })))
+const TarikDataView = lazy(() => import('./components/TarikDataView').then(m => ({ default: m.TarikDataView })))
 const TemplateSettings = lazy(() => import('./components/TemplateSettings').then(m => ({ default: m.TemplateSettings })))
 const SettingsView = lazy(() => import('./components/SettingsView').then(m => ({ default: m.SettingsView })))
 import { Toast } from './components/Toast'
@@ -352,6 +353,10 @@ function WorkspaceApp() {
         {/* Tab 1.5: Broadcast Pengingat POD (Proof of Delivery) */}
         {activeTab === 'pod' && (
           <PodBroadcastView masterContacts={masterContacts} contactsReady={contactsConnection.ready} showToast={showToast} />
+        )}
+
+        {activeTab === 'tarik-data' && (
+          <TarikDataView contacts={masterContacts} contactsReady={contactsConnection.ready} showToast={showToast} />
         )}
 
         {/* Tab 3: Template Settings */}
