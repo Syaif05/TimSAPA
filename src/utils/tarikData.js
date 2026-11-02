@@ -38,11 +38,11 @@ export function parseTarikCsv(csv, contacts = []) {
 
 const escapeTsv = value => /[\t\n\r"]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value
 export function tarikTsv(rows) {
-  return [TARIK_COLUMNS.map(([, label]) => label), ...rows.map(row => TARIK_COLUMNS.map(([field]) => row[field] || ''))]
+  return rows.map(row => TARIK_COLUMNS.map(([field]) => row[field] || ''))
     .map(row => row.map(value => escapeTsv(String(value))).join('\t')).join('\n')
 }
 const escapeHtml = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')
 export function tarikHtml(rows) {
   const cell = (tag, value) => `<${tag} style="font-family:Calibri,Arial,sans-serif;font-size:11pt">${escapeHtml(value)}</${tag}>`
-  return `<table><thead><tr>${TARIK_COLUMNS.map(([, label]) => cell('th', label)).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${TARIK_COLUMNS.map(([field]) => cell('td', row[field] || '')).join('')}</tr>`).join('')}</tbody></table>`
+  return `<table><tbody>${rows.map(row => `<tr>${TARIK_COLUMNS.map(([field]) => cell('td', row[field] || '')).join('')}</tr>`).join('')}</tbody></table>`
 }
