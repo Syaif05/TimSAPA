@@ -8,6 +8,7 @@ import { createCloudDatabase } from '../server/cloudDatabase.js'
 import { createApplicationApi } from '../server/applicationApi.js'
 import { parseMonitoringValues } from '../src/utils/sheetsParser.js'
 import { createRosterReader } from '../supabase/functions/pic-profiles/handler.js'
+import { CONTACTS_SOURCE } from '../src/utils/sheetsConfig.js'
 
 const time = Date.parse('2026-11-01T04:00:00Z')
 const env = { SAPA_GOOGLE_ENABLED: 'true', APP_ORIGIN: 'https://sapa.example', GOOGLE_CLIENT_ID: 'test-client', GOOGLE_CLIENT_SECRET: 'test-only', SAPA_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'), SAPA_SUPER_ADMIN_EMAILS: 'admin@example.com', SUPABASE_URL: 'https://db.example', SUPABASE_SERVICE_ROLE_KEY: 'test-only-server' }
@@ -192,6 +193,16 @@ test('native contact source can only be changed by admin with valid ID and tab n
   const status = await (await app.handle(req('/api/session', { cookie }))).json()
   assert.equal(status.contactsSpreadsheetId, body.contactsSpreadsheetId)
   assert.equal((await (await app.handle(req('/api/session'))).json()).contactsSpreadsheetId, undefined)
+})
+test('configured legacy contacts file uses Excel reader even when its ID is saved', async () => {
+  const database = memoryDatabase()
+  Object.assign(database.tables.get('sapa_source_settings')[0], { contacts_spreadsheet_id: CONTACTS_SOURCE.id, contacts_sheet: CONTACTS_SOURCE.sheet })
+  database.tables.set('sapa_google_connection', [{ id:'main', email:'admin@example.com', encrypted_tokens:'unused', updated_at:new Date(time).toISOString() }])
+  const contact = { store:'1D92', acName:'ANDI GUNAWAN', cugAc:'6281234567890', cugAm:'6281234567891' }
+  const app = createGoogleApplication({ env, database, readContacts: async () => ({ sourceId: CONTACTS_SOURCE.id, sheet: CONTACTS_SOURCE.sheet, contacts:[contact], fetchedAt:new Date(time).toISOString(), revision:'contact-test' }) })
+  const response = await app.handle(req('/api/contacts'))
+  assert.equal(response.status, 200)
+  assert.deepEqual((await response.json()).contacts, [contact])
 })
 
 const header = ['Jam', 'No AC', 'Nama AC', 'Kode Toko', 'Nama Toko', 'Cabang', 'Region', 'Shipment', 'Nama Konsumen', 'SLA', 'Nama AM', 'No AM', 'POD AC', 'APV AM', 'PIC', 'Status', 'Kondisi Motor', 'Jumlah Personil', 'Nama Pejabat', 'Kendala', 'Grouping', 'GLI']
