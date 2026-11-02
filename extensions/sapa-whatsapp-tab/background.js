@@ -5,6 +5,15 @@ const allowedSender = (raw) => {
   } catch { return false }
 }
 
+// Restore the bridge in tabs that were open before installation or update.
+async function reconnectOpenSapaTabs() {
+  const tabs = await chrome.tabs.query({ url: ['https://timsapa.vercel.app/*', 'http://localhost:5173/*', 'http://localhost:4173/*', 'http://127.0.0.1:5173/*', 'http://127.0.0.1:4173/*'] })
+  await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab =>
+    chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] })))
+}
+chrome.runtime.onInstalled.addListener(() => { reconnectOpenSapaTabs().catch(() => {}) })
+chrome.runtime.onStartup.addListener(() => { reconnectOpenSapaTabs().catch(() => {}) })
+
 // Serialize requests so two quick clicks cannot race to select different tabs.
 let pending = Promise.resolve()
 chrome.runtime.onMessage.addListener((message, sender, reply) => {

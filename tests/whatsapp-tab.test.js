@@ -8,7 +8,7 @@ function setup(tabs = [], fail = false) {
   let listener
   const calls = []
   const chrome = {
-    runtime: { onMessage: { addListener: (fn) => { listener = fn } } },
+    runtime: { onMessage: { addListener: (fn) => { listener = fn } }, onInstalled: { addListener: () => {} }, onStartup: { addListener: () => {} } },
     tabs: {
       query: async () => tabs,
       update: async (id, options) => { if (fail) throw new Error('Tab sudah ditutup'); calls.push({ id, ...options }) },

@@ -29,4 +29,5 @@ h1 { margin: 0; font-size: 14px; letter-spacing: -.02em; }
 .refresh-button:hover { background: #1d4ed8; }
 .refresh-button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
 .refresh-button:disabled { opacity: .6; cursor: wait; }
+.connection-help { margin-top: 12px; padding: 10px 12px; border-radius: 9px; background: #eef4ff; color: #334155; font-size: 11px; line-height: 1.5; }
 .hint { margin: 12px 3px 0; color: #71717a; font-size: 10px; line-height: 1.5; }

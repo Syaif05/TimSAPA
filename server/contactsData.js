@@ -43,13 +43,14 @@ export function createContactsReader({ fetchImpl = fetch, now = () => Date.now()
     })()
     return pending
   }
-  return async function readContacts() {
+  return async function readContacts({ force = false } = {}) {
     if (!loadingCache) loadingCache = (async () => {
       let saved = null
       try { saved = await cache.load() } catch { /* unreadable cache can be replaced from source */ }
       if (saved?.sourceId === CONTACTS_SOURCE.id && Array.isArray(saved.contacts) && saved.contacts.length && Number.isFinite(Date.parse(saved.fetchedAt))) snapshot = saved
     })()
     await loadingCache
+    if (force) await refresh()
     const stale = !snapshot || now() - Date.parse(snapshot.fetchedAt) >= CACHE_MS
     if (!snapshot) {
       if (lastError && now() < retryAt) throw new Error(lastError)

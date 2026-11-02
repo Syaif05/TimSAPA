@@ -39,6 +39,7 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
   }
   const requireAdmin = async request => { const admin = await adminSession(request); if (!admin) throw httpError(401, 'Masuk dengan email super admin untuk melanjutkan.'); return admin }
   async function sourceSettings() { return (await database('sapa_source_settings?id=eq.main&select=allow_pic_edits,contacts_spreadsheet_id,contacts_sheet'))[0] || { allow_pic_edits: true } }
+  const excelContacts = settings => !settings.contacts_spreadsheet_id || settings.contacts_spreadsheet_id === CONTACTS_SOURCE.id
   async function connection() { return (await database('sapa_google_connection?id=eq.main&select=email,encrypted_tokens,updated_at'))[0] }
   let access = null; let refreshing
   async function accessToken() {
@@ -156,6 +157,13 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
           await requireAdmin(request)
           return json({ changes: await database('sapa_sheet_audit?select=id,actor,source,sheet_date,shipment,outcome,created_at&order=created_at.desc&limit=20') })
         }
+        if (path === '/api/admin/contacts/refresh' && request.method === 'POST') {
+          sameOrigin(request); await requireAdmin(request)
+          const settings = await sourceSettings()
+          const data = await sheets.contacts(excelContacts(settings) ? readContacts : undefined, { force: true })
+          if (data.stale) throw httpError(503, data.error || 'Kontak belum berhasil diperbarui. Data lama tetap tersedia.')
+          return json({ count: data.contacts.length, fetchedAt: data.fetchedAt, sourceId: data.sourceId })
+        }
         if (path === '/api/orders' && request.method === 'PATCH') {
           sameOrigin(request)
           const settings = await sourceSettings()
@@ -175,8 +183,11 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
         if (path === '/api/contacts' && request.method === 'GET') {
           const settings = await sourceSettings()
           // The original contacts file is an XLSX opened in the Sheets UI, not a native Sheet.
-          const useExcel = !settings.contacts_spreadsheet_id || settings.contacts_spreadsheet_id === CONTACTS_SOURCE.id
-          return json(await sheets.contacts(useExcel ? readContacts : undefined))
+          const data = await sheets.contacts(excelContacts(settings) ? readContacts : undefined)
+          const etag = `"${data.revision}:${!!data.stale}"`
+          const headers = { ETag: etag, 'X-SAPA-Fetched-At': data.fetchedAt }
+          if (!data.stale && request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers: { ...headers, 'Cache-Control': 'no-store' } })
+          return json(data, 200, headers)
         }
         return json({ error: 'Metode tidak tersedia.' }, 405)
       } catch (error) {

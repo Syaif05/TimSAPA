@@ -11,7 +11,7 @@
     <header class="brand">
       <img class="brand-mark" src="icons/icon-48.png" alt="" width="36" height="36">
       <div><strong>SAPA Assistant</strong><span>Penghubung WhatsApp Web</span></div>
-      <span class="version">v1.3</span>
+      <span class="version">v1.4</span>
     </header>
     <section id="connection-status" class="status-card" data-state="checking" aria-live="polite">
       <div class="status-heading"><span class="status-icon" aria-hidden="true">●</span><h1 id="connection-title">Memeriksa koneksi…</h1></div>
@@ -21,8 +21,9 @@
       <div class="check-row"><span class="check-icon" aria-hidden="true">S</span><div><strong>SAPA</strong><small>Halaman dengan penghubung aktif</small></div><span id="sapa-status" class="check-result">Memeriksa…</span></div>
       <div class="check-row"><span class="check-icon wa" aria-hidden="true">WA</span><div><strong>WhatsApp Web</strong><small>Tab yang sudah terbuka</small></div><span id="whatsapp-status" class="check-result">Memeriksa…</span></div>
     </section>
-    <button id="refresh-button" class="refresh-button" type="button">Periksa ulang</button>
-    <p class="hint">Ekstensi hanya memakai tab WhatsApp Web yang sudah ada. Buka dan login WhatsApp Web secara manual bila belum tersedia.</p>
+    <div id="connection-help" class="connection-help" aria-live="polite"></div>
+    <button id="refresh-button" class="refresh-button" type="button">Sambungkan ulang &amp; periksa</button>
+    <p class="hint">Gunakan SAPA dan WhatsApp Web pada profil browser yang sama. Chat dibuka di tab WhatsApp yang sudah ada; pesan dikirim manual.</p>
   </main>
   <script type="module" src="popup.js"></script>
 </body>

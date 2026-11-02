@@ -117,27 +117,6 @@
   .sheet-detail-dialog { width: calc(100vw - 12px); max-height: calc(100dvh - 20px); border-radius: 15px; }
 }
 
-.google-admin-card { width: min(100%, 460px); }
-.google-admin-card h1 { font-size: 30px; }
-.google-admin-card .profile-enter { text-align: center; text-decoration: none; }
-.admin-email { overflow-wrap: anywhere; }
-.admin-source-card { display: flex; align-items: center; gap: 14px; margin: 24px 0 12px; padding: 18px; border: 1px solid #e4e4e7; border-radius: 18px; }
-.admin-source-card div { flex: 1; min-width: 0; }
-.admin-source-card p { font-size: 12px; margin: 5px 0 0; overflow-wrap: anywhere; }
-.admin-edit-toggle { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 20px 0; font-size: 13px; }
-.admin-edit-toggle small { display: block; color: #71717a; margin-top: 4px; }
-.admin-edit-toggle input { accent-color: var(--accent, #2563eb); width: 19px; height: 19px; }
-.admin-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 24px; }
-.admin-footer a { display: inline-flex; align-items: center; gap: 7px; color: #71717a; font-size: 12px; text-decoration: none; }
-.admin-setup { margin: 22px 0; padding: 18px; border: 1px solid #e4e4e7; border-radius: 16px; font-size: 13px; }
-.admin-setup a { color: #2563eb; text-decoration: underline; }
-.admin-saved { color: #15803d; font-size: 12px; }
-.admin-audit { max-height: 260px; overflow: auto; margin: 14px 0; font-size: 11px; }
-.admin-audit p { padding: 9px 0; border-bottom: 1px solid #e4e4e7; line-height: 1.7; }
-.admin-contact-source { border-top: 1px solid #e4e4e7; padding: 16px 0; margin-top: 8px; }
-.admin-contact-source label { display: block; margin: 10px 0; font-size: 12px; }
-.admin-contact-source input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #e4e4e7; border-radius: 10px; font-size: 12px; }
-.admin-contact-source p { font-size: 11px; }
 .order-sheet-dialog { width: min(95vw, 470px); }
 .order-sheet-dialog label { display: block; margin: 16px 0; font-size: 12px; font-weight: 500; }
 .order-sheet-dialog input, .order-sheet-dialog select, .order-sheet-dialog textarea { display: block; width: 100%; padding: 10px 12px; margin-top: 6px; border: 1px solid var(--border-color, #e4e4e7); border-radius: 10px; background: transparent; font-size: 13px; }

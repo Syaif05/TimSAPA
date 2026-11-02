@@ -204,6 +204,20 @@ test('configured legacy contacts file uses Excel reader even when its ID is save
   assert.equal(response.status, 200)
   assert.deepEqual((await response.json()).contacts, [contact])
 })
+test('contacts use a 24-hour database snapshot and admin refresh bypasses it', async () => {
+  const database = memoryDatabase()
+  let clock = time
+  let reads = 0
+  const api = createGoogleSheetsApi({ database, googleRequest: async () => assert.fail('Excel source should not call Sheets API'), now: () => clock })
+  const reader = async () => ({ contacts: [{ name: `Contact ${++reads}` }], fetchedAt: new Date(clock).toISOString(), revision: String(reads) })
+  assert.equal((await api.contacts(reader)).contacts[0].name, 'Contact 1')
+  clock += 23 * 3600000
+  assert.equal((await api.contacts(reader)).contacts[0].name, 'Contact 1')
+  assert.equal((await api.contacts(reader, { force: true })).contacts[0].name, 'Contact 2')
+  assert.equal(reads, 2)
+  clock += 25 * 3600000
+  assert.equal((await api.contacts(reader)).contacts[0].name, 'Contact 3')
+})
 
 const header = ['Jam', 'No AC', 'Nama AC', 'Kode Toko', 'Nama Toko', 'Cabang', 'Region', 'Shipment', 'Nama Konsumen', 'SLA', 'Nama AM', 'No AM', 'POD AC', 'APV AM', 'PIC', 'Status', 'Kondisi Motor', 'Jumlah Personil', 'Nama Pejabat', 'Kendala', 'Grouping', 'GLI']
 const cells = ['13:00', '081234567890', 'TEST AC', 'TEST1', 'Test Store', 'Test Branch', '', 'TEST-SHIP', '', '>1 jam', '', '', '', '', 'PIC TEST', 'Proses', '', '', '', 'Catatan awal']
@@ -235,16 +249,16 @@ function sheetsFixture() {
 }
 test('Sheets API coalesces requests and reuses durable same-day snapshot across server instances', async () => {
   const f = sheetsFixture()
-  const [a, b] = await Promise.all([f.api.monitoring(), f.api.monitoring()])
+  const [a, b] = await Promise.all([f.api.monitoring({ date: '2026-11-01' }), f.api.monitoring({ date: '2026-11-01' })])
   assert.equal(a.rows.length, 2); assert.equal(b.revision, a.revision); assert.equal(f.calls(), 2)
   const another = createGoogleSheetsApi({ database: f.database, googleRequest: async () => assert.fail('durable cache should be reused'), now: () => time })
-  assert.equal((await another.monitoring()).revision, a.revision)
+  assert.equal((await another.monitoring({ date: '2026-11-01' })).revision, a.revision)
   assert.equal(a.rows[0].sheetDate, '2026-11-01'); assert.equal(a.transport, 'google-api')
 })
 test('failed refresh retains prior snapshot with warning, never leaks previous day into new day', async () => {
-  const f = sheetsFixture(); const first = await f.api.monitoring()
+  const f = sheetsFixture(); const first = await f.api.monitoring({ date: '2026-11-01' })
   f.advance(); f.offline()
-  const stale = await f.api.monitoring()
+  const stale = await f.api.monitoring({ date: '2026-11-01' })
   assert.equal(stale.stale, true); assert.equal(stale.error, 'Test offline'); assert.equal(stale.fetchedAt, first.fetchedAt)
   await assert.rejects(f.api.monitoring({ mode: 'daily', date: '2026-11-02' }), /offline/)
 })

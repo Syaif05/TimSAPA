@@ -60,14 +60,14 @@ export function createGoogleSheetsApi({ database, googleRequest, now = () => Dat
       return { mode, date: sourceDate, fetchedAt: new Date(now()).toISOString(), revision: hash(rows), sources: sources.map(({ rows: sourceRows, ...s }) => ({ ...s, count: sourceRows.length })), rows, transport: 'google-api' }
     }, force)
   }
-  async function contacts(readExcel) {
+  async function contacts(readExcel, { force = false } = {}) {
     const source = await contactsSource()
-    return cached(readExcel ? 'contacts:master:excel' : `contacts:${source.id}:${source.sheet}`, 300000, async () => {
-      if (readExcel) return { ...await readExcel(), transport: 'excel' }
+    return cached(readExcel ? 'contacts:master:excel' : `contacts:${source.id}:${source.sheet}`, 86400000, async () => {
+      if (readExcel) return { ...await readExcel({ force }), transport: 'excel' }
       const data = await googleRequest(source.id, `/values/${encodeURIComponent(`${quote(source.sheet)}!A:AZ`)}?valueRenderOption=FORMATTED_VALUE`)
       const rows = parseContactRows(data.values || [])
       return { sourceId: source.id, sheet: source.sheet, contacts: rows, fetchedAt: new Date(now()).toISOString(), revision: hash(rows), transport: 'google-api' }
-    })
+    }, force)
   }
   // Only these two columns can be changed. Headers are resolved afresh before each write.
   async function updateOrder(body, actor) {

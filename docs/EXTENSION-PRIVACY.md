@@ -17,7 +17,7 @@ Penggunaan data oleh ekstensi ini mematuhi Kebijakan Data Pengguna Chrome Web St
 
 ## Izin dan cakupan akses
 
-Akses ke `web.whatsapp.com` dipakai untuk menemukan serta memfokuskan tab WhatsApp Web yang sudah terbuka. Ekstensi berjalan pada halaman SAPA di `timsapa.vercel.app` dan pada alamat localhost untuk pengembangan. Ekstensi tidak membaca isi percakapan WhatsApp, tidak membuka tab baru, dan tidak mengirim pesan secara otomatis.
+Akses ke `web.whatsapp.com` dipakai untuk menemukan serta memfokuskan tab WhatsApp Web yang sudah terbuka. Akses ke `timsapa.vercel.app` dan localhost serta izin `scripting` dipakai untuk menyambungkan kembali tab SAPA yang sudah terbuka sebelum ekstensi dipasang atau diperbarui. Ekstensi tidak membaca isi percakapan WhatsApp, tidak membuka tab baru, dan tidak mengirim pesan secara otomatis.
 
 ## Perubahan dan kontak
 

@@ -1,5 +1,7 @@
+(() => {
 const localSapa = location.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(location.hostname) && ['5173', '4173'].includes(location.port)
-if (window.top === window && (localSapa || location.origin === 'https://timsapa.vercel.app')) {
+if (window.top === window && (localSapa || location.origin === 'https://timsapa.vercel.app') && !window.__sapaWaBridgeInstalled) {
+  window.__sapaWaBridgeInstalled = true
   chrome.runtime.onMessage.addListener((message, _sender, reply) => {
     if (message?.type !== 'SAPA_WA_HEALTH') return false
     reply({ source: 'sapa-wa-extension', ok: true })
@@ -17,3 +19,4 @@ if (window.top === window && (localSapa || location.origin === 'https://timsapa.
     window.postMessage({ source: 'sapa-wa-extension', id: data.id, ...result }, location.origin)
   })
 }
+})()
