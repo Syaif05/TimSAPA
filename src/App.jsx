@@ -11,6 +11,7 @@ import { Header } from './components/Header'
 import { MonitoringWorkspace } from './components/MonitoringWorkspace'
 const PodBroadcastView = lazy(() => import('./components/PodBroadcastView').then(m => ({ default: m.PodBroadcastView })))
 const TarikDataView = lazy(() => import('./components/TarikDataView').then(m => ({ default: m.TarikDataView })))
+const HasilLaporanView = lazy(() => import('./components/HasilLaporanView').then(m => ({ default: m.HasilLaporanView })))
 const TemplateSettings = lazy(() => import('./components/TemplateSettings').then(m => ({ default: m.TemplateSettings })))
 const SettingsView = lazy(() => import('./components/SettingsView').then(m => ({ default: m.SettingsView })))
 import { Toast } from './components/Toast'
@@ -75,6 +76,8 @@ function WorkspaceApp() {
 
   // 2. Active Tab
   const [activeTab, setActiveTab] = useState('workspace')
+  const [reportVisited, setReportVisited] = useState(false)
+  useEffect(() => { if (activeTab === 'hasil-laporan') setReportVisited(true) }, [activeTab])
   const [settingsTab, setSettingsTab] = useState('appearance')
 
   // 3. Status Pengerjaan yang dapat dikustomisasi (Settings Tab & Workspace)
@@ -358,6 +361,8 @@ function WorkspaceApp() {
         {activeTab === 'tarik-data' && (
           <TarikDataView contacts={masterContacts} contactsReady={contactsConnection.ready} monitoringMode={sheets.mode} showToast={showToast} />
         )}
+
+        {(activeTab === 'hasil-laporan' || reportVisited) && <div hidden={activeTab !== 'hasil-laporan'}><HasilLaporanView storage={storage} showToast={showToast}/></div>}
 
         {/* Tab 3: Template Settings */}
         {activeTab === 'templates' && (
