@@ -20,7 +20,7 @@ export function TarikDataView({ contacts = [], contactsReady = false, monitoring
   const checkMonitoring = async imported => {
     setChecking(true)
     try {
-      const params = new URLSearchParams({ mode: monitoringMode, ...(monitoringMode === 'daily' ? { date: jakartaDate() } : {}) })
+      const params = new URLSearchParams({ mode: monitoringMode, fresh: '1', ...(monitoringMode === 'daily' ? { date: jakartaDate() } : {}) })
       const response = await fetch(`/api/sheets?${params}`, { cache: 'no-store' })
       if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error || 'Data Monitoring belum dapat dibaca.') }
       const data = await response.json()
