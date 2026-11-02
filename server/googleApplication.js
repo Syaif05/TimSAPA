@@ -172,7 +172,12 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
           if (!data.stale && request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers: { ...headers, 'Cache-Control': 'no-store' } })
           return json(data, 200, headers)
         }
-        if (path === '/api/contacts' && request.method === 'GET') { const settings = await sourceSettings(); return json(await sheets.contacts(settings.contacts_spreadsheet_id || env.SAPA_CONTACTS_MODE === 'google-sheets' ? undefined : readContacts)) }
+        if (path === '/api/contacts' && request.method === 'GET') {
+          const settings = await sourceSettings()
+          // The original contacts file is an XLSX opened in the Sheets UI, not a native Sheet.
+          const useExcel = !settings.contacts_spreadsheet_id || settings.contacts_spreadsheet_id === CONTACTS_SOURCE.id
+          return json(await sheets.contacts(useExcel ? readContacts : undefined))
+        }
         return json({ error: 'Metode tidak tersedia.' }, 405)
       } catch (error) {
         const status = error.status || 502
