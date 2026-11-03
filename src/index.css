@@ -448,3 +448,6 @@ button { cursor: pointer; }
 .hub-ac-contact { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--surface, white); }
 .hub-ac-contact strong { font-size: 14px; }
 .hub-ac-contact small { color: #16834b; }
+.hub-ac-filters { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+.hub-ac-filters label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; flex: 1 1 160px; }
+.hub-ac-filters select { width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); color: var(--ink); }
