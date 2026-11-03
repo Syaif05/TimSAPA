@@ -1,7 +1,7 @@
 import { normalizePhone, isValidIndonesianPhone } from '../src/utils/phoneUtils.js'
 const key = value => String(value ?? '').toLowerCase().replace(/[\s_-]/g, '')
 export function parseContactRows(rows) {
-  const aliases = { store: ['store', 'kdstore'], storeName: ['storename', 'namastore'], acName: ['acname', 'ac'], cugAc: ['cugac', 'noac'], cugToko: ['cugtoko'], cabang: ['cabang', 'namabranch'], regional: ['regional', 'reg'], amName: ['amname', 'am'], cugAm: ['cugam', 'noam'] }
+  const aliases = { store: ['store', 'kdstore'], storeName: ['storename', 'namastore'], acName: ['acname', 'ac'], cugAc: ['cugac', 'noac'], cugToko: ['cugtoko'], cabang: ['cabang', 'namabranch'], regional: ['regional', 'reg'], amName: ['amname', 'am'], cugAm: ['cugam', 'noam'], province: ['provinsi'], city: ['kota'], storeStatus: ['status'], sapa: ['sapa'], branchCode: ['kdbranch'] }
   const headerIndex = rows.slice(0, 20).findIndex(row => { const h = row.map(key); return ['store', 'storeName', 'acName'].every(field => aliases[field].some(name => h.includes(name))) })
   if (headerIndex < 0) throw new Error('Kolom toko, nama toko, dan AC tidak ditemukan pada sumber kontak.')
   const headers = rows[headerIndex].map(key)

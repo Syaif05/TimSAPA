@@ -97,7 +97,7 @@ test('maps November SQL export without inventing missing phone or regional value
 
 test('reads the eight-column November SAPA tab and ignores the full export tab', () => {
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['KD_STORE'], ['WRONG']]), 'DATA KONTAK NOVEMBEBER 2026')
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['KD_STORE'], ['WRONG']]), 'Other export')
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
     ['NAMA_BRANCH','KD_STORE','NAMA_STORE','No AC','AC','NO AM','AM','REG'],
     ['CIANJUR','X030','TEST STORE',81234567890,'TEST AC',81234567891,'TEST AM','REG 1'],

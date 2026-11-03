@@ -18,7 +18,7 @@ export function dailySheetTitle(source, date) {
 
 export const CONTACTS_SOURCE = {
   id: '1aJv08iqT9az8XOoo97xuU6dEPY2yiUAa',
-  gid: '660718329',
-  sheet: 'LEBIH SIMPEL SAPA',
-  url: 'https://docs.google.com/spreadsheets/d/1aJv08iqT9az8XOoo97xuU6dEPY2yiUAa/edit?gid=660718329#gid=660718329',
+  gid: '451837702',
+  sheet: 'DATA KONTAK NOVEMBEBER 2026',
+  url: 'https://docs.google.com/spreadsheets/d/1aJv08iqT9az8XOoo97xuU6dEPY2yiUAa/edit?gid=451837702#gid=451837702',
 }

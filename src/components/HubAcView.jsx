@@ -11,6 +11,7 @@ export function HubAcView({ contacts = [], ready, showToast }) {
   const [search, setSearch] = useState('')
   const [regional, setRegional] = useState('')
   const [cabang, setCabang] = useState('')
+  const [extraFilters, setExtraFilters] = useState({})
   const [phoneFilter, setPhoneFilter] = useState('')
   const [sort, setSort] = useState('regional')
   const [limit, setLimit] = useState(50)
@@ -20,10 +21,10 @@ export function HubAcView({ contacts = [], ready, showToast }) {
   const directory = useMemo(() => buildAcDirectory(contacts), [contacts])
   const regionals = useMemo(() => [...new Set(contacts.map(c => contactArea(c.regional)))].sort(), [contacts])
   const branches = useMemo(() => [...new Set(filterAcContacts(contacts, { regional }).map(c => contactArea(c.cabang)))].sort(), [contacts, regional])
-  const scopedDirectory = useMemo(() => buildAcDirectory(filterAcContacts(contacts, { regional, cabang })), [contacts, regional, cabang])
+  const scopedDirectory = useMemo(() => buildAcDirectory(filterAcContacts(contacts, { regional, cabang, ...extraFilters })), [contacts, regional, cabang, extraFilters])
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase()
-    return scopedDirectory.filter(ac => (!phoneFilter || (phoneFilter === 'valid' ? !!ac.phone : !ac.phone)) && `${ac.name} ${ac.phone} ${ac.stores.join(' ')} ${ac.regionals.join(' ')} ${ac.branches.join(' ')}`.toLowerCase().includes(query))
+    return scopedDirectory.filter(ac => (!phoneFilter || (phoneFilter === 'valid' ? !!ac.phone : !ac.phone)) && `${ac.name} ${ac.phone} ${ac.stores.join(' ')} ${ac.regionals.join(' ')} ${ac.branches.join(' ')} ${ac.amNames.join(' ')} ${ac.provinces.join(' ')} ${ac.cities.join(' ')} ${ac.storeNames.join(' ')}`.toLowerCase().includes(query))
       .sort((a, b) => (sort === 'regional' ? a.regionals.join(', ').localeCompare(b.regionals.join(', '), 'id', { numeric: true }) : 0) || (sort === 'za' ? b.name.localeCompare(a.name, 'id') : a.name.localeCompare(b.name, 'id')))
   }, [scopedDirectory, search, phoneFilter, sort])
   const updateMessage = value => {
@@ -47,19 +48,21 @@ export function HubAcView({ contacts = [], ready, showToast }) {
   return <section className="hub-ac">
     <div className="hub-ac-intro"><div><h3>Hubungi AC</h3><p>Cari kontak AC dan siapkan pengumuman untuk tim. Kontak mengikuti database kontak website.</p></div><a className="secondary-button" href={EXTENSION_STORE_URL} target="_blank" rel="noopener noreferrer"><Download size={16}/>Download Extension</a></div>
     <WhatsAppConnection/>
+    {!contacts.some(c => c.regional) && <p>Kolom Regional belum tersedia pada sumber ini. Gunakan filter Cabang, Provinsi, atau Kota.</p>}
     <div className="hub-ac-compose"><label htmlFor="ac-announcement">Draf pengumuman</label><textarea id="ac-announcement" rows={5} value={message} onChange={e => updateMessage(e.target.value)} placeholder="Tulis pengumuman untuk AC di sini…"/><div className="hub-ac-intro"><p>Draf tersimpan untuk PIC ini. Buka chat satu per satu, lalu kirim manual di WhatsApp.</p><button className="secondary-button" disabled={!message.trim()} onClick={copyMessage}><Copy size={15}/>Salin pengumuman</button></div></div>
-    <label className="hub-ac-search"><Search size={18}/><span className="sr-only">Cari nama AC, nomor, atau kode toko</span><input value={search} onChange={e => { setSearch(e.target.value); setLimit(50) }} placeholder="Cari nama AC, nomor, atau kode toko…"/></label>
+    <label className="hub-ac-search"><Search size={18}/><span className="sr-only">Cari AC, AM, nomor, nama/kode toko atau wilayah</span><input value={search} onChange={e => { setSearch(e.target.value); setLimit(50) }} placeholder="Cari AC, AM, nomor, nama/kode toko atau wilayah…"/></label>
     <div className="hub-ac-filters">
-      <label>Regional<select value={regional} onChange={e => { setRegional(e.target.value); setCabang(''); setLimit(50) }}><option value="">Semua Regional</option>{regionals.map(value => <option key={value}>{value}</option>)}</select></label>
-      <label>Cabang<select value={cabang} onChange={e => { setCabang(e.target.value); setLimit(50) }}><option value="">Semua Cabang</option>{branches.map(value => <option key={value}>{value}</option>)}</select></label>
+      <label>Regional<select value={regional} onChange={e => { setRegional(e.target.value); setCabang(''); setExtraFilters({}); setLimit(50) }}><option value="">Semua Regional</option>{regionals.map(value => <option key={value}>{value}</option>)}</select></label>
+      <label>Cabang<select value={cabang} onChange={e => { setCabang(e.target.value); setExtraFilters({}); setLimit(50) }}><option value="">Semua Cabang</option>{branches.map(value => <option key={value}>{value}</option>)}</select></label>
+      {[['amName', 'AM'], ['province', 'Provinsi'], ['city', 'Kota'], ['storeStatus', 'Status toko'], ['sapa', 'Layanan SAPA']].map(([field, label]) => <label key={field}>{label}<select value={extraFilters[field] || ''} onChange={e => { setExtraFilters(previous => ({ ...previous, [field]: e.target.value })); setLimit(50) }}><option value="">Semua {label}</option>{[...new Set(filterAcContacts(contacts, { regional, cabang }).map(c => contactArea(c[field])))].sort().map(value => <option key={value}>{value}</option>)}</select></label>)}
       <label>Nomor WhatsApp<select value={phoneFilter} onChange={e => { setPhoneFilter(e.target.value); setLimit(50) }}><option value="">Semua nomor</option><option value="valid">Nomor valid</option><option value="missing">Tanpa nomor valid</option></select></label>
       <label>Urutan<select value={sort} onChange={e => { setSort(e.target.value); setLimit(50) }}><option value="regional">Regional, lalu nama A–Z</option><option value="az">Nama A–Z</option><option value="za">Nama Z–A</option></select></label>
-      <button className="secondary-button" onClick={() => { setRegional(''); setCabang(''); setPhoneFilter(''); setSort('regional'); setSearch(''); setLimit(50) }}>Reset filter</button>
+      <button className="secondary-button" onClick={() => { setRegional(''); setCabang(''); setExtraFilters({}); setPhoneFilter(''); setSort('regional'); setSearch(''); setLimit(50) }}>Reset filter</button>
     </div>
     <p role="status">{!ready && !directory.length ? 'Memuat kontak…' : `${filtered.length} dari ${directory.length} kontak • ${filtered.filter(ac => !ac.phone).length} tanpa nomor valid`}</p>
     {ready && !directory.length && <p>Kontak AC belum tersedia. Perbarui sumber kontak melalui admin.</p>}
     {!!directory.length && !filtered.length && <p>Tidak ada kontak yang cocok dengan pencarian.</p>}
-    <div className="hub-ac-list">{filtered.slice(0, limit).map(ac => <article className="hub-ac-contact" key={ac.key}><div><strong>{ac.name}</strong><p>Regional: {ac.regionals.join(', ')} · Cabang: {ac.branches.join(', ')}</p><p>{ac.phone ? formatPhoneDisplay(ac.phone) : 'Nomor belum tersedia'} · {ac.stores.length} toko</p>{opened.has(ac.key) && <small>Draf pernah dibuka pada sesi ini</small>}</div><button className="secondary-button" disabled={!ac.phone || opening !== null} onClick={() => openChat(ac)} aria-label={`Buka chat ${ac.name} ${ac.phone}`}><MessageCircle size={16}/>{opening === ac.key ? 'Membuka…' : 'Buka chat'}</button></article>)}</div>
+    <div className="hub-ac-list">{filtered.slice(0, limit).map(ac => <article className="hub-ac-contact" key={ac.key}><div><strong>{ac.name}</strong><p>Regional: {ac.regionals.join(', ')} · Cabang: {ac.branches.join(', ')}</p><p>AM: {ac.amNames.join(', ')} · Provinsi: {ac.provinces.join(', ')}</p><p>{ac.phone ? formatPhoneDisplay(ac.phone) : 'Nomor belum tersedia'} · {ac.stores.length} toko</p>{opened.has(ac.key) && <small>Draf pernah dibuka pada sesi ini</small>}</div><button className="secondary-button" disabled={!ac.phone || opening !== null} onClick={() => openChat(ac)} aria-label={`Buka chat ${ac.name} ${ac.phone}`}><MessageCircle size={16}/>{opening === ac.key ? 'Membuka…' : 'Buka chat'}</button></article>)}</div>
     {filtered.length > limit && <button className="secondary-button" onClick={() => setLimit(value => value + 50)}>Tampilkan lebih banyak ({filtered.length - limit})</button>}
   </section>
 }
