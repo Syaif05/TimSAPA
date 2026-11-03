@@ -179,7 +179,7 @@ export function MonitoringWorkspace({
     <div className="monitoring-page">
       <h1 className="sr-only">Monitoring</h1>
       <div className="monitoring-compact-bar">
-        <MonitoringTools showToast={showToast}/>
+        <MonitoringTools showToast={showToast} contactsConnection={contactsConnection}/>
         <div className="monitoring-status-controls">
           <WhatsAppConnection compact />
           {dataConnection && <SheetsConnection compact connection={dataConnection} contactsConnection={contactsConnection} preferences={sheetPreferences} onPreferencesChange={onSheetPreferencesChange}/>}

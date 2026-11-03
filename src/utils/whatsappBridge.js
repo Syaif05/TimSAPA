@@ -1,3 +1,5 @@
+export const EXTENSION_STORE_URL = 'https://chromewebstore.google.com/detail/nclllgicdagekfmiccokobbekjnodbbk'
+
 // No automatic window.open fallback: failed reuse must never create duplicate tabs.
 export function requestWhatsAppTab(type, url, timeout = 5000) {
   return new Promise((resolve) => {
