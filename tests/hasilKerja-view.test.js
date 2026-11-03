@@ -13,12 +13,13 @@ for (const [, specifier] of [...code.matchAll(/from\s+"([^"]+)"/g)]) {
 const { HasilKerjaView } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
 const row = (n, values = {}) => ({ shipment:`S${n}`,pic:'ANA',source:'REG',sheetStatus:'DONE',kendala:`Kendala ${n}`,kondisiMotor:'RUSAK',grouping:'Follow up',...values })
 const render = rows => renderToStaticMarkup(React.createElement(HasilKerjaView, { rows,date:'2026-11-03',scope:'daily',storage:{getItem:()=>null},showToast:()=>{} }))
-test('compact results paginate four cards while floating progress and note recap cover all groups', () => {
+test('all groups appear on a single page with floating progress and full recap', () => {
   const html = render(Array.from({length:10},(_,i)=>row(i)))
-  assert.equal((html.match(/class="work-result-card /g)||[]).length,4)
+  assert.equal((html.match(/class="work-result-card /g)||[]).length,10)
+  assert.doesNotMatch(html,/Halaman berikutnya|per halaman/)
   assert.match(html,/work-progress-floating/)
   assert.match(html,/0\/10 kelompok/)
-  assert.match(html,/Kendala 9/,'all notes recap contains groups beyond page one')
+  assert.match(html,/Kendala 9/,'all notes recap contains all groups')
 })
 test('copy controls exclude radio/dropdown fields and warn only for empty notes', () => {
   const html = render([row(1),row(2,{kendala:''})])
@@ -27,4 +28,11 @@ test('copy controls exclude radio/dropdown fields and warn only for empty notes'
   assert.match(html,/Salin Nomor Shipment/)
   assert.match(html,/Kendala kosong/)
   assert.doesNotMatch(html,/Ada data kosong/)
+})
+
+test('office fields follow report order with notes placed last', () => {
+  const html = render([row(1,{jumlahPersonil:'2',namaPejabat:'TEST'})])
+  const fields = ['shipment','jumlahPersonil','namaPejabat','kondisiMotor','grouping','kendala']
+  const positions = fields.map(field => html.indexOf(`work-field-${field}`))
+  assert.ok(positions.every((position,index) => position >= 0 && (!index || position > positions[index-1])))
 })
