@@ -79,3 +79,33 @@ test('contacts endpoint refuses writes and returns conditional GET without retra
   assert.equal(JSON.parse(first.body).contacts.length, 1)
   assert.equal((await run('GET', { 'if-none-match': first.headers.ETag })).statusCode, 304)
 })
+
+test('maps November SQL export without inventing missing phone or regional values', async () => {
+  const { parseContactRows } = await import('../server/contactRows.js')
+  const rows = parseContactRows([
+    ['KD_BRANCH', 'NAMA_BRANCH', 'KD_STORE', 'NAMA_STORE', 'NIK AC', 'AC', 'NIK AM', 'AM'],
+    ['2JZ1', 'CIANJUR', 'X030', 'TEST STORE', 12075085, 'TEST AC', 13031219, 'TEST AM'],
+  ])
+  assert.equal(rows[0].store, 'X030')
+  assert.equal(rows[0].cabang, 'CIANJUR')
+  assert.equal(rows[0].acName, 'TEST AC')
+  assert.equal(rows[0].amName, 'TEST AM')
+  assert.equal(rows[0].cugAc, '')
+  assert.equal(rows[0].cugAm, '')
+  assert.equal(rows[0].regional, '')
+})
+
+test('reads the eight-column November SAPA tab and ignores the full export tab', () => {
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['KD_STORE'], ['WRONG']]), 'DATA KONTAK NOVEMBEBER 2026')
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['NAMA_BRANCH','KD_STORE','NAMA_STORE','No AC','AC','NO AM','AM','REG'],
+    ['CIANJUR','X030','TEST STORE',81234567890,'TEST AC',81234567891,'TEST AM','REG 1'],
+  ]), CONTACTS_SOURCE.sheet)
+  const rows = parseContactWorkbook(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }))
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].store, 'X030')
+  assert.equal(rows[0].cugAc, '6281234567890')
+  assert.equal(rows[0].cugAm, '6281234567891')
+  assert.equal(rows[0].regional, 'REG 1')
+})

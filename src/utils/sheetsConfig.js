@@ -17,8 +17,8 @@ export function dailySheetTitle(source, date) {
 }
 
 export const CONTACTS_SOURCE = {
-  id: '1gz9Gt3uVMtpfK4JJN_6qh1URWb8wTK3K',
-  gid: '843052731',
-  sheet: 'KONTAK TOKO BARU',
-  url: 'https://docs.google.com/spreadsheets/d/1gz9Gt3uVMtpfK4JJN_6qh1URWb8wTK3K/edit?gid=843052731#gid=843052731',
+  id: '1aJv08iqT9az8XOoo97xuU6dEPY2yiUAa',
+  gid: '660718329',
+  sheet: 'LEBIH SIMPEL SAPA',
+  url: 'https://docs.google.com/spreadsheets/d/1aJv08iqT9az8XOoo97xuU6dEPY2yiUAa/edit?gid=660718329#gid=660718329',
 }

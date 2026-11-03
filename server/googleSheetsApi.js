@@ -25,7 +25,7 @@ export function createGoogleSheetsApi({ database, googleRequest, now = () => Dat
         if (now() >= cleanupAt) {
           cleanupAt = now() + 3600000
           // Cached copies can be regenerated; keep approximately one week to bound storage.
-          await database(queryPath('sapa_source_cache', { expires_at: `lt.${new Date(now() - 7 * 86400000).toISOString()}` }), { method: 'DELETE' }).catch(() => {})
+          await database(queryPath('sapa_source_cache', { cache_key: 'like.monitoring:*', expires_at: `lt.${new Date(now() - 7 * 86400000).toISOString()}` }), { method: 'DELETE' }).catch(() => {})
         }
         memory.set(key, next)
         if (memory.size > 8) memory.delete(memory.keys().next().value)
@@ -62,8 +62,8 @@ export function createGoogleSheetsApi({ database, googleRequest, now = () => Dat
   }
   async function contacts(readExcel, { force = false } = {}) {
     const source = await contactsSource()
-    return cached(readExcel ? 'contacts:master:excel' : `contacts:${source.id}:${source.sheet}`, 86400000, async () => {
-      if (readExcel) return { ...await readExcel({ force }), transport: 'excel' }
+    return cached(`contacts:${source.id}:${source.sheet}`, 86400000, async () => {
+      if (readExcel) return { ...await readExcel({ force: true }), transport: 'excel' }
       const data = await googleRequest(source.id, `/values/${encodeURIComponent(`${quote(source.sheet)}!A:AZ`)}?valueRenderOption=FORMATTED_VALUE`)
       const rows = parseContactRows(data.values || [])
       return { sourceId: source.id, sheet: source.sheet, contacts: rows, fetchedAt: new Date(now()).toISOString(), revision: hash(rows), transport: 'google-api' }

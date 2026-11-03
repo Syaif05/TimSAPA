@@ -1,11 +1,11 @@
 import { normalizePhone, isValidIndonesianPhone } from '../src/utils/phoneUtils.js'
 const key = value => String(value ?? '').toLowerCase().replace(/[\s_-]/g, '')
 export function parseContactRows(rows) {
-  const headerIndex = rows.slice(0, 20).findIndex(row => ['store', 'storename', 'acname', 'cugac'].every(name => row.map(key).includes(name)))
-  if (headerIndex < 0) throw new Error('Kolom Store, Store Name, AC name, dan CUG AC tidak ditemukan pada sumber kontak.')
+  const aliases = { store: ['store', 'kdstore'], storeName: ['storename', 'namastore'], acName: ['acname', 'ac'], cugAc: ['cugac', 'noac'], cugToko: ['cugtoko'], cabang: ['cabang', 'namabranch'], regional: ['regional', 'reg'], amName: ['amname', 'am'], cugAm: ['cugam', 'noam'] }
+  const headerIndex = rows.slice(0, 20).findIndex(row => { const h = row.map(key); return ['store', 'storeName', 'acName'].every(field => aliases[field].some(name => h.includes(name))) })
+  if (headerIndex < 0) throw new Error('Kolom toko, nama toko, dan AC tidak ditemukan pada sumber kontak.')
   const headers = rows[headerIndex].map(key)
-  const columns = { store: 'store', storeName: 'storename', acName: 'acname', cugAc: 'cugac', cugToko: 'cugtoko', cabang: 'cabang', regional: 'regional', amName: 'amname', cugAm: 'cugam' }
-  const index = Object.fromEntries(Object.entries(columns).map(([field, name]) => [field, headers.indexOf(name)]))
+  const index = Object.fromEntries(Object.entries(aliases).map(([field, names]) => [field, headers.findIndex(name => names.includes(name))]))
   const contacts = []
   for (let i = headerIndex + 1; i < rows.length; i++) {
     const row = Object.fromEntries(Object.entries(index).map(([field, col]) => [field, col < 0 ? '' : String(rows[i][col] ?? '').trim()]))
