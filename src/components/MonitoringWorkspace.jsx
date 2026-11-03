@@ -6,13 +6,14 @@ import { usePicProfile } from '../profiles/ProfileContext'
 import { MonitoringSheet } from './MonitoringSheet'
 import { createPortal } from 'react-dom'
 import React, { useState, useMemo, lazy, Suspense, useDeferredValue, useEffect, useRef, useId } from 'react'
-import { Plus, FileSpreadsheet, LayoutGrid, Columns, Search, RotateCcw, Palette, Calendar, Trash2, X } from 'lucide-react'
+import { Plus, FileSpreadsheet, LayoutGrid, Columns, Search, RotateCcw, Palette, Calendar, Trash2, CheckCircle2, X } from 'lucide-react'
 import { WhatsAppConnection } from './WhatsAppConnection'
 import { AcDetailPanel } from './AcDetailPanel'
 import { AcListItem } from './AcListItem'
 import { AcCard } from './AcCard'
 const PasteInputModal = lazy(() => import('./PasteInputModal').then(m => ({ default: m.PasteInputModal })))
 const ImagePreviewModal = lazy(() => import('./ImagePreviewModal').then(m => ({ default: m.ImagePreviewModal })))
+import { HasilKerjaView } from './HasilKerjaView'
 import { MonitoringTools } from './MonitoringTools'
 import { SheetsConnection } from './SheetsConnection'
 import { renderTemplate } from '../utils/templateEngine'
@@ -58,7 +59,7 @@ export function MonitoringWorkspace({
   const isPasteModalOpen = externalPasteOpen !== undefined ? externalPasteOpen : internalPasteOpen
   const setIsPasteModalOpen = externalSetPasteOpen || setInternalPasteOpen
   const { storage } = usePicProfile()
-  const [viewMode, setViewMode] = useState(() => { try { const saved = storage.getItem('sapa_monitoring_view'); return ['split','grid','sheet'].includes(saved) ? saved : 'split' } catch { return 'split' } })
+  const [viewMode, setViewMode] = useState(() => { try { const saved = storage.getItem('sapa_monitoring_view'); return ['split','grid','sheet','work'].includes(saved) ? saved : 'split' } catch { return 'split' } })
   const [sheetDetailKey, setSheetDetailKey] = useState(null)
   const [sheetOrderStatus, setSheetOrderStatus] = useState('ALL')
   useEffect(() => { try { storage.setItem('sapa_monitoring_view', viewMode) } catch {} }, [viewMode, storage])
@@ -198,20 +199,21 @@ export function MonitoringWorkspace({
             </select>
             {isArchiveMode && <span className="tiny-badge">Arsip</span>}</>}</div>
             <div className="monitoring-view-toggle" role="group" aria-label="Pilihan tampilan monitoring">
-              <button className={viewMode !== 'sheet' ? 'active' : ''} aria-pressed={viewMode !== 'sheet'} onClick={() => setViewMode('split')}><Columns size={14}/>Antrean</button>
+              <button className={['split','grid'].includes(viewMode) ? 'active' : ''} aria-pressed={['split','grid'].includes(viewMode)} onClick={() => setViewMode('split')}><Columns size={14}/>Antrean</button>
               <button className={viewMode === 'sheet' ? 'active' : ''} aria-pressed={viewMode === 'sheet'} onClick={() => setViewMode('sheet')}><FileSpreadsheet size={14}/>Spreadsheet</button>
+              <button className={viewMode === 'work' ? 'active' : ''} aria-pressed={viewMode === 'work'} onClick={() => setViewMode('work')}><CheckCircle2 size={14}/>Hasil Kerja</button>
             </div>
           </div>
           <div className="flex items-center gap-1 min-w-0">
             <select className="clean-select template-select" aria-label="Template pesan" value={activeTemplateKey} onChange={e => onSelectTemplateKey(e.target.value)}>{Object.entries(templates).map(([key, t], i) => <option value={key} key={key}>{t.name.replace(/^Template \d+:?\s*/, '') || `Template ${i + 1}`}</option>)}</select>
             <button className="icon-button" aria-label="Pengaturan desain" title="Pengaturan desain" onClick={onNavigateToSettings}><Palette size={16}/></button>
             <span className="toolbar-divider" />
-            {viewMode !== 'sheet' && <button className={`icon-button ${viewMode === 'grid' ? 'is-active' : ''}`} aria-pressed={viewMode === 'grid'} aria-label="Tampilan kartu" title={viewMode === 'grid' ? 'Kembali ke daftar antrean' : 'Tampilan kartu'} onClick={() => setViewMode(viewMode === 'grid' ? 'split' : 'grid')}><LayoutGrid size={16}/></button>}
+            {['split','grid'].includes(viewMode) && <button className={`icon-button ${viewMode === 'grid' ? 'is-active' : ''}`} aria-pressed={viewMode === 'grid'} aria-label="Tampilan kartu" title={viewMode === 'grid' ? 'Kembali ke daftar antrean' : 'Tampilan kartu'} onClick={() => setViewMode(viewMode === 'grid' ? 'split' : 'grid')}><LayoutGrid size={16}/></button>}
             <button className="icon-button danger-icon" title="Reset data tanggal ini" aria-label="Reset data tanggal ini" onClick={handleConfirmResetDate} disabled={isLive || !acGroups.length}><Trash2 size={16}/></button>
           </div>
         </div>
 
-        <div className="filter-bar">
+        {viewMode !== 'work' && <div className="filter-bar">
           <label className="search-field"><Search size={16}/><input aria-label="Cari AC, toko, atau shipment" placeholder="Cari AC, toko, shipment…" value={filters.search} onChange={e => handleFilterChange('search', e.target.value)}/></label>
           <div className="filter-selects">
             {viewMode === 'sheet' && <select className="clean-select" aria-label="Filter status pesanan spreadsheet" value={sheetOrderStatus} onChange={event => setSheetOrderStatus(event.target.value)}><option value="ALL">Semua status pesanan</option><option value="ACTIVE">Belum DONE</option><option value="DONE">DONE</option><option value="EMPTY">Belum diisi</option>{[...new Set(sheetSourceRows.map(row => String(row.sheetStatus || '').trim()).filter(status => status && status.toUpperCase() !== 'DONE'))].sort().map(status => <option key={status} value={status}>{status}</option>)}</select>}
@@ -226,9 +228,9 @@ export function MonitoringWorkspace({
             <select className="clean-select" aria-label="Filter SLA" value={filters.sla} onChange={e => handleFilterChange('sla', e.target.value)}><option value="ALL">SLA</option><option value="CRITICAL">Kritis</option><option value="OVER_1_2">&gt; 1–2 jam</option><option value="12_JAM">&gt; 12 jam</option><option value="6_JAM">&gt; 6 jam</option><option value="2_JAM">&gt; 2 jam</option><option value="1_JAM">&gt; 1 jam</option></select>
             {(Object.values(filters).some(v => v !== 'ALL' && v !== '') || (viewMode === 'sheet' && sheetOrderStatus !== 'ALL')) && <button className="icon-button" aria-label="Hapus filter" title="Hapus filter" onClick={() => { setFilters({search: '', pic: 'ALL', jam: 'ALL', sla: 'ALL', status: 'ALL'}); setSheetOrderStatus('ALL'); setSelectedAcKey(null) }}><RotateCcw size={14}/></button>}
           </div>
-        </div>
+        </div>}
 
-        {viewMode !== 'sheet' && acGroups.length === 0 ? <div className="empty-panel"><FileSpreadsheet size={30} strokeWidth={1}/><h2>{isLive ? (dataConnection.snapshot ? 'Tidak ada pesanan untuk filter ini' : dataConnection.phase === 'error' ? 'Sumber belum bisa dibaca' : 'Menghubungkan Google Sheets…') : 'Belum ada data'}</h2>{isLive ? <span className="text-xs text-zinc-400">{dataConnection.snapshot ? 'Ubah PIC, sumber, atau status pesanan.' : 'Data manual tetap tersimpan terpisah.'}</span> : <div className="flex gap-2 flex-wrap justify-center"><button className="primary-button" onClick={() => setIsPasteModalOpen(true)}><Plus size={15}/>Input data</button><button className="secondary-button" onClick={handleLoadDemo}>Muat demo</button></div>}</div> : viewMode !== 'sheet' && filteredAcGroups.length === 0 ? <div className="empty-panel"><Search size={28}/><h2>Tidak ada hasil</h2><span className="text-xs text-zinc-400">Sesuaikan pencarian atau filter.</span></div> : viewMode === 'sheet' ? <MonitoringSheet rows={sheetSourceRows} groups={filteredAcGroups} filters={filters} search={deferredSearch} orderStatus={sheetOrderStatus} filterKey={`${sheetFilterKey}:${sheetOrderStatus}`} onOpenGroup={key => {setSelectedAcKey(key);setSheetDetailKey(key)}} tableSettings={tableSettings} showToast={showToast} storage={storage}/> : viewMode === 'split' ? (
+        {viewMode === 'work' ? <HasilKerjaView key={`${isLive ? dataConnection?.mode : 'manual'}:${isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate}`} rows={sheetRows} date={isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate} scope={isLive ? dataConnection?.mode || 'daily' : 'manual'} storage={storage} defaultPic={isLive ? sheetPreferences?.pic : filters.pic} defaultSource={isLive ? sheetPreferences?.source : 'ALL'} showToast={showToast}/> : viewMode !== 'sheet' && acGroups.length === 0 ? <div className="empty-panel"><FileSpreadsheet size={30} strokeWidth={1}/><h2>{isLive ? (dataConnection.snapshot ? 'Tidak ada pesanan untuk filter ini' : dataConnection.phase === 'error' ? 'Sumber belum bisa dibaca' : 'Menghubungkan Google Sheets…') : 'Belum ada data'}</h2>{isLive ? <span className="text-xs text-zinc-400">{dataConnection.snapshot ? 'Ubah PIC, sumber, atau status pesanan.' : 'Data manual tetap tersimpan terpisah.'}</span> : <div className="flex gap-2 flex-wrap justify-center"><button className="primary-button" onClick={() => setIsPasteModalOpen(true)}><Plus size={15}/>Input data</button><button className="secondary-button" onClick={handleLoadDemo}>Muat demo</button></div>}</div> : viewMode !== 'sheet' && filteredAcGroups.length === 0 ? <div className="empty-panel"><Search size={28}/><h2>Tidak ada hasil</h2><span className="text-xs text-zinc-400">Sesuaikan pencarian atau filter.</span></div> : viewMode === 'sheet' ? <MonitoringSheet rows={sheetSourceRows} groups={filteredAcGroups} filters={filters} search={deferredSearch} orderStatus={sheetOrderStatus} filterKey={`${sheetFilterKey}:${sheetOrderStatus}`} onOpenGroup={key => {setSelectedAcKey(key);setSheetDetailKey(key)}} tableSettings={tableSettings} showToast={showToast} storage={storage}/> : viewMode === 'split' ? (
           <div className="workspace-split">
             <section className="queue-panel" aria-label="Antrean AC">
               <div className="queue-heading"><h2>Antrean AC</h2><span className="tiny-badge">{filteredAcGroups.length}</span></div>
