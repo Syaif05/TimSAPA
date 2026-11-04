@@ -109,3 +109,18 @@ test('reads the eight-column November SAPA tab and ignores the full export tab',
   assert.equal(rows[0].cugAm, '6281234567891')
   assert.equal(rows[0].regional, 'REG 1')
 })
+
+test('supervisor structure maps store, AC and AM phones independently without inventing regions', () => {
+  const result = parseContactWorkbook(workbook([
+    ['Store','Store Name','CUG Toko','AM Name','CUG AM','AC name','CUG AC'],
+    ['T001','TEST STORE','0812-3456-7890','TEST AM',81234567891,'TEST AC','0812-3456-7892'],
+    ['T002','OTHER STORE',0,'OTHER AM',0,'OTHER AC',0],
+  ]))
+  assert.equal(result[0].cugToko,'6281234567890')
+  assert.equal(result[0].cugAm,'6281234567891')
+  assert.equal(result[0].cugAc,'6281234567892')
+  assert.equal(result[0].regional,'')
+  assert.equal(result[0].cabang,'')
+  assert.equal(result[1].cugAc,'')
+  assert.equal(result[1].cugAm,'')
+})

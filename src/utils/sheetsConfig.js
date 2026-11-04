@@ -17,8 +17,8 @@ export function dailySheetTitle(source, date) {
 }
 
 export const CONTACTS_SOURCE = {
-  id: '1aJv08iqT9az8XOoo97xuU6dEPY2yiUAa',
-  gid: '451837702',
-  sheet: 'DATA KONTAK NOVEMBEBER 2026',
-  url: 'https://docs.google.com/spreadsheets/d/1aJv08iqT9az8XOoo97xuU6dEPY2yiUAa/edit?gid=451837702#gid=451837702',
+  id: '1tMhnC9DDu9q4N1IMoR-DbaRiDbEH_bCS',
+  gid: '641664316',
+  sheet: 'STRUKTUR NOV 2026',
+  url: 'https://docs.google.com/spreadsheets/d/1tMhnC9DDu9q4N1IMoR-DbaRiDbEH_bCS/edit?gid=641664316#gid=641664316',
 }
