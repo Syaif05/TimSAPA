@@ -31,12 +31,13 @@ export function nodeApiHandler(handler) {
   return async (req, res) => {
     try {
       const base = 'http://localhost'
+      const bodyLimit = new URL(req.url, base).pathname === '/api/tarik-update' ? 4000000 : 20000
       let body
       if (!['GET', 'HEAD'].includes(req.method)) {
         if (req.body !== undefined) body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
         else {
           const chunks = []; let length = 0
-          for await (const chunk of req) { length += chunk.length; if (length > 20000) { res.statusCode = 413; res.end(); return } chunks.push(chunk) }
+          for await (const chunk of req) { length += chunk.length; if (length > bodyLimit) { res.statusCode = 413; res.end(); return } chunks.push(chunk) }
           body = Buffer.concat(chunks)
         }
       }

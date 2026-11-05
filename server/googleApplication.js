@@ -1,3 +1,4 @@
+import { createTarikUpdater } from './tarikUpdate.js'
 import { cleanReportDesign } from '../src/utils/reportDesign.js'
 import { createGoogleOAuth, tokenCipher, randomToken, digest, httpError, normalizeEmail, SHEETS_SCOPE } from './googleOAuth.js'
 import { createCloudDatabase, queryPath } from './cloudDatabase.js'
@@ -26,10 +27,10 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
     if (request.headers.get('origin') !== origin()) throw httpError(403, 'Permintaan harus berasal dari aplikasi SAPA.')
     if (!request.headers.get('content-type')?.startsWith('application/json')) throw httpError(415, 'Gunakan format JSON.')
   }
-  const bodyOf = async request => {
-    if (Number(request.headers.get('content-length')) > 20000) throw httpError(413, 'Permintaan terlalu besar.')
+  const bodyOf = async (request, limit = 20000) => {
+    if (Number(request.headers.get('content-length')) > limit) throw httpError(413, 'Permintaan terlalu besar.')
     const text = await request.text()
-    if (Buffer.byteLength(text) > 20000) throw httpError(413, 'Permintaan terlalu besar.')
+    if (Buffer.byteLength(text) > limit) throw httpError(413, 'Permintaan terlalu besar.')
     try { return JSON.parse(text) } catch { throw httpError(400, 'Format permintaan tidak valid.') }
   }
   async function adminSession(request) {
@@ -73,6 +74,7 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
     return data
   }
   const sheets = createGoogleSheetsApi({ database, googleRequest, now, contactsSource: async () => { const settings = await sourceSettings(); return settings.contacts_spreadsheet_id ? { id: settings.contacts_spreadsheet_id, sheet: settings.contacts_sheet } : CONTACTS_SOURCE } })
+  const updateTarik = createTarikUpdater({ database, googleRequest, now })
   async function begin(request, purpose) {
     const admin = purpose === 'connect' ? await requireAdmin(request) : null
     const flow = { state: randomToken(), nonce: randomToken(), verifier: randomToken(), purpose, email: admin?.email, sessionHash: admin?.token_hash, expires: now() + 600000 }
@@ -138,7 +140,7 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
           await database('sapa_source_cache?on_conflict=cache_key', { method: 'POST', body: { cache_key: 'settings:followup-design', snapshot, expires_at: '9999-12-31T00:00:00Z' }, prefer: 'resolution=merge-duplicates,return=minimal' })
           return json(snapshot)
         }
-        if (!path.startsWith('/api/auth/') && !path.startsWith('/api/admin/') && path !== '/api/orders' && !(enabled && ['/api/sheets', '/api/contacts'].includes(path))) return null
+        if (!path.startsWith('/api/auth/') && !path.startsWith('/api/admin/') && path !== '/api/orders' && path !== '/api/tarik-update' && !(enabled && ['/api/sheets', '/api/contacts'].includes(path))) return null
         requireConfig()
         // Enabling admin login must not interrupt the existing public monitoring
         // while the manager has yet to connect their Google account. Both readers
@@ -180,6 +182,15 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
           const data = await sheets.contacts(excelContacts(settings) ? readContacts : undefined, { force: true })
           if (data.stale) throw httpError(503, data.error || 'Kontak belum berhasil diperbarui. Data lama tetap tersedia.')
           return json({ count: data.contacts.length, fetchedAt: data.fetchedAt, sourceId: data.sourceId })
+        }
+        if (path === '/api/tarik-update' && request.method === 'POST') {
+          sameOrigin(request)
+          const settings = await sourceSettings()
+          if (!settings.allow_pic_edits) throw httpError(403, 'Update oleh PIC sedang dinonaktifkan super admin.')
+          const body = await bodyOf(request, 4000000)
+          const pic = String(body.pic || '').trim().toUpperCase()
+          if (!pic || !(await database(queryPath('sapa_pic_profiles', { name:`eq.${pic}`,select:'name' }))).length) throw httpError(403, 'Pilih PIC terdaftar sebelum update.')
+          return json(await updateTarik(body, `PIC:${pic}`))
         }
         if (path === '/api/orders' && request.method === 'PATCH') {
           sameOrigin(request)

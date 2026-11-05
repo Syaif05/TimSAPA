@@ -291,3 +291,12 @@ test('report designs are shared across PICs and latest explicit save wins', asyn
  assert.equal(record.design.theme,'green')
  assert.equal((await app.handle(req('/api/report-design',{method:'PUT',body:{pic:'PIC TEST',design:{showSummary:false,showDetail:false}}}))).status,400)
 })
+
+test('direct tarik update requires same origin, registered PIC and enabled edits', async () => {
+ const {app,database}=appFixture()
+ const payload={pic:'NOT REGISTERED',date:'2026-11-05',source:'REG',hour:'08:00',rows:[]}
+ assert.equal((await app.handle(req('/api/tarik-update',{method:'POST',origin:'https://evil.example',body:payload}))).status,403)
+ assert.equal((await app.handle(req('/api/tarik-update',{method:'POST',body:payload}))).status,403)
+ database.tables.get('sapa_source_settings')[0].allow_pic_edits=false
+ assert.equal((await app.handle(req('/api/tarik-update',{method:'POST',body:{...payload,pic:'PIC TEST'}}))).status,403)
+})
