@@ -1,3 +1,4 @@
+import { groupRowsByAc } from '../src/utils/matcher.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile, access } from 'node:fs/promises'
@@ -134,4 +135,13 @@ test('Buka chat stays clickable with a valid number while contacts are syncing',
   assert.ok(button)
   assert.ok(!button.includes('disabled'))
   assert.ok(html.includes('Kontak belum tersinkron'))
+})
+
+test('exported AC image table includes both DS and REG for one shared phone',async()=>{
+ const {AcTableRender}=await import(await moduleUrl('../src/components/AcTableRender.jsx'))
+ const combined=groupRowsByAc([rows[0],rows[3]].map(row=>({...row,resolvedAcName:'SAME AC',resolvedPhone:'6281234567890'})),{}, {mergeContacts:true})
+ assert.equal(combined.length,1)
+ const html=renderToStaticMarkup(React.createElement(AcTableRender,{acGroup:combined[0]}))
+ assert.match(html,/TEST-DS-8/)
+ assert.match(html,/TEST-REG-2/)
 })

@@ -22,13 +22,14 @@ export function filterMonitoringGroups(groups, filters = {}, search = '', status
       && (any(filters.pic) || String(row.pic || '').trim().toUpperCase() === filters.pic.trim().toUpperCase())
       && (any(filters.jam) || row.jam === filters.jam)
       && matchesSla(row.sla, filters.sla)
-      && (groupMatch || [row.kodeToko, row.namaToko, row.shipment].some(value => String(value || '').toLowerCase().includes(q))))
+      && (groupMatch || [row.kodeToko, row.namaToko, row.shipment, row.namaAc, row.resolvedAcName].some(value => String(value || '').toLowerCase().includes(q))))
     if (!rows.length) return []
     if (rows.length === group.rows.length) return [group]
     const storesList = [...new Map(rows.map(row => [row.kodeToko, `${row.kodeToko} - ${row.namaToko || ''}`])).values()]
     const slaBreakdown = {}
     rows.forEach(row => { const key = row.sla || 'Lainnya'; slaBreakdown[key] = (slaBreakdown[key] || 0) + 1 })
-    return [{ ...group, rows, storesList, slaBreakdown, totalShipments: rows.length, totalStores: new Set(rows.map(row => row.kodeToko).filter(Boolean)).size }]
+    const sources=[...new Set(rows.map(row=>row.source).filter(Boolean))].sort((a,b)=>sourcePriority(a)-sourcePriority(b))
+    return [{ ...group, sources, source:sources.length>1?'MIXED':sources[0]||group.source, rows, storesList, slaBreakdown, totalShipments: rows.length, totalStores: new Set(rows.map(row => row.kodeToko).filter(Boolean)).size }]
   })
 }
 

@@ -122,7 +122,7 @@ export function AcDetailPanel({
       <div className="chat-heading">
         <div className="flex items-center gap-3 min-w-0">
           <span className="detail-avatar">{acGroup.acName.split(/\s+/).slice(0, 2).map(n => n[0]).join('')}</span>
-          <div className="min-w-0"><div className="chat-source-name">{acGroup.source && <span className="source-badge">{acGroup.source}</span>}<h2 className="text-sm font-semibold truncate">{acGroup.acName}</h2></div><p className="text-[11px] text-zinc-400 mt-1">{acGroup.cabang || '—'} · {acGroup.region || '—'}</p></div>
+          <div className="min-w-0"><div className="chat-source-name">{acGroup.source && <span className="source-badge">{acGroup.sources?.join(' + ') || acGroup.source}</span>}<h2 className="text-sm font-semibold truncate">{acGroup.acName}</h2></div><p className="text-[11px] text-zinc-400 mt-1">{acGroup.cabang || '—'} · {acGroup.region || '—'}</p></div>
         </div>
         {!compact && <div className="flex items-center gap-1">
           <span className="text-[11px] text-zinc-400 mr-1">{currentIndex + 1} / {totalCount}</span>

@@ -8,7 +8,7 @@ export const AcListItem = memo(function AcListItem({ acGroup, isSelected, onClic
     <span className={`ac-avatar ${status.countsAsCompleted ? 'complete' : ''}`}>{acGroup.acName.split(/\s+/).slice(0, 2).map(n => n[0]).join('')}</span>
     <span className="min-w-0 flex-1 text-left">
       <span className="block truncate text-xs font-semibold">{acGroup.acName}</span>
-      <span className="block truncate text-[11px] text-zinc-400 mt-1">{acGroup.source && <span className="source-badge">{acGroup.source}</span>}{acGroup.cabang || '—'} · {acGroup.totalShipments} pesanan</span>
+      <span className="block truncate text-[11px] text-zinc-400 mt-1">{acGroup.source && <span className="source-badge">{acGroup.sources?.join(' + ') || acGroup.source}</span>}{acGroup.cabang || '—'} · {acGroup.totalShipments} pesanan</span>
     </span>
     <span className={`queue-dot ${status.countsAsCompleted ? 'complete' : critical ? 'critical' : ''}`} title={status.label} />
     <ChevronRight size={13} className="text-zinc-300" />

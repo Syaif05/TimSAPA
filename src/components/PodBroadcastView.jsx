@@ -1,3 +1,7 @@
+import { useJakartaDate } from '../hooks/useJakartaDate'
+import { podStorageKeys } from '../utils/podSession'
+import { requestWhatsAppTab } from '../utils/whatsappBridge'
+import { WhatsAppConnection } from './WhatsAppConnection'
 import { usePicProfile, usePicSetting } from '../profiles/ProfileContext'
 import { InfoButton } from './InfoButton'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
@@ -41,15 +45,21 @@ import {
   renderPodMessage,
   playChimeSound
 } from '../utils/podManager'
-import { createWhatsAppWebUrl, formatPhoneDisplay, normalizePhone, isValidIndonesianPhone, openWhatsAppUrl, WA_TAB_NAME } from '../utils/phoneUtils'
+import { createWhatsAppWebUrl, formatPhoneDisplay, normalizePhone, isValidIndonesianPhone } from '../utils/phoneUtils'
 import { PodInputModal } from './PodInputModal'
 
 export function PodBroadcastView({ masterContacts = [], contactsReady = true, showToast }) {
+  const { name } = usePicProfile()
+  const date = useJakartaDate()
+  return <PodBroadcastSession key={`${name}:${date}`} date={date} masterContacts={masterContacts} contactsReady={contactsReady} showToast={showToast}/>
+}
+function PodBroadcastSession({ date, masterContacts, contactsReady, showToast }) {
   const { storage } = usePicProfile()
+  const keys = podStorageKeys(date)
   // 1. Data POD Rows (Tersimpan di localStorage)
   const [podRows, setPodRows] = useState(() => {
     try {
-      const saved = storage.getItem('sapa_pod_rows')
+      const saved = storage.getItem(keys.rows)
       if (saved) return JSON.parse(saved)
     } catch {}
     return []
@@ -58,8 +68,7 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
   // 2. Status Pengiriman Map: { [acKey]: { status: 'sent'|'skipped', sentAt: timestamp } }
   const [statusMap, setStatusMap] = useState(() => {
     try {
-      const today = new Date().toISOString().slice(0, 10)
-      const saved = storage.getItem(`sapa_pod_status_${today}`)
+      const saved = storage.getItem(keys.status)
       if (saved) return JSON.parse(saved)
     } catch {}
     return {}
@@ -68,7 +77,7 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
   // 3. Manual Phone Overrides: { [acKey]: string }
   const [phoneOverrides, setPhoneOverrides] = useState(() => {
     try {
-      const saved = storage.getItem('sapa_pod_phone_overrides')
+      const saved = storage.getItem(keys.phones)
       if (saved) return JSON.parse(saved)
     } catch {}
     return {}
@@ -77,9 +86,9 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
   // 4. Template Pesan POD
   const [template, setTemplate] = usePicSetting('podTemplate', DEFAULT_POD_TEMPLATE)
   
-  const [useSameTab, setUseSameTab] = usePicSetting('podUseSameTab', true)
   const [soundEnabled, setSoundEnabled] = usePicSetting('podSoundEnabled', true)
-  const [isPopupBlocked, setIsPopupBlocked] = useState(false)
+  const sendingRef = useRef(false)
+  const [sending, setSending] = useState(false)
   const [isEditingTemplate, setIsEditingTemplate] = useState(false)
   const [isInputModalOpen, setIsInputModalOpen] = useState(false)
   const [editingPhoneAcKey, setEditingPhoneAcKey] = useState(null)
@@ -99,24 +108,23 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
   // Simpan data rows ke localStorage
   useEffect(() => {
     try {
-      storage.setItem('sapa_pod_rows', JSON.stringify(podRows))
+      storage.setItem(keys.rows, JSON.stringify(podRows))
     } catch {}
-  }, [podRows, storage])
+  }, [podRows, storage, keys.rows])
 
   // Simpan statusMap ke localStorage
   useEffect(() => {
     try {
-      const today = new Date().toISOString().slice(0, 10)
-      storage.setItem(`sapa_pod_status_${today}`, JSON.stringify(statusMap))
+      storage.setItem(keys.status, JSON.stringify(statusMap))
     } catch {}
-  }, [statusMap, storage])
+  }, [statusMap, storage, keys.status])
 
   // Simpan phoneOverrides ke localStorage
   useEffect(() => {
     try {
-      storage.setItem('sapa_pod_phone_overrides', JSON.stringify(phoneOverrides))
+      storage.setItem(keys.phones, JSON.stringify(phoneOverrides))
     } catch {}
-  }, [phoneOverrides, storage])
+  }, [phoneOverrides, storage, keys.phones])
 
   // Enriched Items (Mencocokkan AC dengan Master Contacts)
   const enrichedItems = useMemo(() => {
@@ -176,7 +184,8 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
   // -------------------------------------------------------------
 
   // Dispatch single AC
-  const dispatchWhatsApp = (item) => {
+  const dispatchWhatsApp = async (item) => {
+    if (sendingRef.current) return false
     if (!contactsReady) { showToast?.('Sumber kontak spreadsheet belum siap. Tunggu sinkronisasi kontak.', 'info'); return false }
     if (!item.hasPhone) {
       showToast?.(`Nomor WhatsApp untuk ${item.namaAc} belum terdaftar!`, 'error')
@@ -185,20 +194,12 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
 
     const message = renderPodMessage(template, item)
     const url = createWhatsAppWebUrl(item.phone, message)
-    const targetName = useSameTab ? WA_TAB_NAME : '_blank'
-
+    sendingRef.current = true; setSending(true)
     try {
-      const win = openWhatsAppUrl(url, targetName)
-      if (!win || win.closed || typeof win.closed === 'undefined') {
-        setIsPopupBlocked(true)
-        return false
-      } else {
-        setIsPopupBlocked(false)
-      }
-    } catch (e) {
-      setIsPopupBlocked(true)
-      return false
-    }
+      const result = await requestWhatsAppTab('SAPA_WA_OPEN', url)
+      if (!result.ok) { showToast?.(result.error || 'WhatsApp belum terhubung.', 'error'); return false }
+    } catch { showToast?.('Gagal membuka tab WhatsApp yang sudah ada.', 'error'); return false }
+    finally { sendingRef.current = false; setSending(false) }
 
     // Update status ke 'sent'
     setStatusMap((prev) => ({
@@ -210,7 +211,7 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
       playChimeSound('dispatch')
     }
 
-    showToast?.(`Membuka WhatsApp untuk ${item.namaAc} (${item.shipmentCount} Shipment)`, 'success')
+    showToast?.(`Draf ${item.namaAc} dibuka. Tekan Kirim di WhatsApp.`, 'success')
     return true
   }
 
@@ -218,7 +219,7 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
   useEffect(() => {
     const handleKeyDown = (e) => {
       const tag = document.activeElement?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (['INPUT','TEXTAREA','SELECT','BUTTON','A'].includes(tag) || document.activeElement?.isContentEditable || document.querySelector('dialog[open]')) return
 
       if (e.code === 'Space' || e.code === 'Enter') {
         if (eligibleQueue.length > 0) {
@@ -232,7 +233,7 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [eligibleQueue, template, useSameTab, soundEnabled])
+  }, [eligibleQueue, template, soundEnabled, contactsReady, date])
 
   // Reset Semua Status Pengiriman Menjadi Belum Dikirim
   const handleResetStatus = () => {
@@ -402,7 +403,7 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
               <span className="text-3xl font-black text-zinc-900 dark:text-white tracking-tight">
                 {progressPercent}%
               </span>
-              <span className="text-xs text-zinc-400">({sentCount}/{readyToSendCount} Terkirim)</span>
+              <span className="text-xs text-zinc-400">({sentCount}/{readyToSendCount} Draf dibuka)</span>
             </div>
             {/* Progress bar */}
             <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-2 rounded-full mt-2 overflow-hidden">
@@ -453,7 +454,7 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
                     : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                 }`}
               >
-                Terkirim ({sentCount})
+                Draf dibuka ({sentCount})
               </button>
               <button
                 onClick={() => setFilterTab('no_phone')}
@@ -625,7 +626,7 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
                             ) : isSent ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                                 <Check size={11} />
-                                <span>Terkirim</span>
+                                <span>Draf dibuka</span>
                               </span>
                             ) : isSkipped ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
@@ -643,7 +644,7 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
                             <div className="flex items-center justify-end gap-1.5">
                               {item.hasPhone && (
                                 <button
-                                  onClick={() => dispatchWhatsApp(item)}
+                                  disabled={sending} onClick={() => dispatchWhatsApp(item)}
                                   className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-all cursor-pointer"
                                   title="Kirim Pesan WhatsApp Manual"
                                 >
@@ -689,7 +690,7 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
         {/* RIGHT COLUMN (5 COLS): Auto-Dispatcher Control & Preview */}
         {/* ======================================================== */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-zinc-200/80 dark:border-zinc-800 space-y-3"><h2 className="font-bold text-sm">Kirim pengingat POD manual</h2><p className="text-xs text-zinc-500">Buka draf untuk AC berikutnya, periksa pesan, lalu tekan Kirim di WhatsApp.</p><button className="primary-button" disabled={!eligibleQueue.length} onClick={() => { const item=eligibleQueue[0]; if(item){setSelectedAcKey(item.acKey);dispatchWhatsApp(item)} }}><Send size={15}/> {eligibleQueue.length ? `Buka WA: ${eligibleQueue[0].namaAc}` : 'Tidak ada antrean'}</button></div>
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-zinc-200/80 dark:border-zinc-800 space-y-3"><h2 className="font-bold text-sm">Kirim pengingat POD manual</h2><WhatsAppConnection/><p className="text-xs text-zinc-500">Data PIC ini untuk {date} (WIB). Daftar dikosongkan pada tanggal berikutnya.</p><p className="text-xs text-zinc-500">Buka draf untuk AC berikutnya, periksa pesan, lalu tekan Kirim di WhatsApp.</p><button className="primary-button" disabled={!eligibleQueue.length || sending} onClick={() => { const item=eligibleQueue[0]; if(item){setSelectedAcKey(item.acKey);dispatchWhatsApp(item)} }}><Send size={15}/> {eligibleQueue.length ? `Buka WA: ${eligibleQueue[0].namaAc}` : 'Tidak ada antrean'}</button></div>
 
           {/* Card 2: LIVE PREVIEW PESAN WHATSAPP & EDIT TEMPLATE */}
           <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-4">
@@ -785,7 +786,7 @@ export function PodBroadcastView({ masterContacts = [], contactsReady = true, sh
                 {/* Direct Action */}
                 {activeSelectedItem.hasPhone ? (
                   <button
-                    onClick={() => dispatchWhatsApp(activeSelectedItem)}
+                    disabled={sending} onClick={() => dispatchWhatsApp(activeSelectedItem)}
                     className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-all cursor-pointer"
                   >
                     <Send size={14} />

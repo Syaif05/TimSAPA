@@ -114,22 +114,31 @@ export function matchSapaWithContacts(sapaRows, masterContacts = [], { preferMas
  * @param {Object} sentStatusMap - Map status pengiriman yang tersimpan { [acKey]: 'sent' | 'pending' }
  * @returns {Array<Object>}
  */
-export function groupRowsByAc(enrichedRows, sentStatusMap = {}, { workingOnly = false, splitSources = false } = {}) {
+export function groupRowsByAc(enrichedRows, sentStatusMap = {}, { workingOnly = false, splitSources = false, mergeContacts = false } = {}) {
   const groups = new Map()
 
   const rows = workingOnly ? activeOrders(enrichedRows) : enrichedRows
+  const phonesByName = new Map()
+  if (mergeContacts) for (const row of rows) {
+    const name=String(row.resolvedAcName||'TANPA_NAMA').trim().toUpperCase()
+    const phone=normalizePhone(row.resolvedPhone)
+    if(isValidIndonesianPhone(phone)){if(!phonesByName.has(name))phonesByName.set(name,new Set());phonesByName.get(name).add(phone)}
+  }
   rows.forEach((row) => {
     // Kunci grouping berdasarkan Nama AC
     const acNameKey = (row.resolvedAcName || 'TANPA_NAMA').toUpperCase().trim()
     const source = ['DS', 'REG'].includes(row.source) ? row.source : ''
-    const acKey = splitSources && source ? `${source}::${acNameKey}` : acNameKey
+    const candidates=phonesByName.get(acNameKey)
+    const ownPhone=isValidIndonesianPhone(row.resolvedPhone) ? normalizePhone(row.resolvedPhone) : ''
+    const groupPhone=ownPhone || (candidates?.size===1 ? [...candidates][0] : '')
+    const acKey = mergeContacts ? (groupPhone ? `WA:${groupPhone}` : `NAME:${acNameKey}`) : splitSources && source ? `${source}::${acNameKey}` : acNameKey
 
     if (!groups.has(acKey)) {
       groups.set(acKey, {
         acKey,
         source,
         acName: row.resolvedAcName || 'AC Tanpa Nama',
-        phone: row.resolvedPhone || '',
+        phone: mergeContacts ? groupPhone : row.resolvedPhone || '',
         cugToko: row.cugToko || '',
         cabang: row.cabang || '',
         region: row.region || '',
@@ -155,6 +164,8 @@ export function groupRowsByAc(enrichedRows, sentStatusMap = {}, { workingOnly = 
 
   // Hitung totalStores, totalShipments, dan slaBreakdown untuk setiap AC group
   groups.forEach((g) => {
+    g.sources=[...new Set(g.rows.map(row=>row.source).filter(Boolean))].sort((a,b)=>sourcePriority(a)-sourcePriority(b))
+    if(mergeContacts) {g.source=g.sources.length>1?'MIXED':g.sources[0]||'';g.rows.sort((a,b)=>sourcePriority(a.source)-sourcePriority(b.source))}
     g.totalShipments = g.rows.length
     const uniqueStores = new Set(g.rows.map((r) => r.kodeToko).filter(Boolean))
     g.totalStores = uniqueStores.size || (g.rows.length > 0 ? 1 : 0)

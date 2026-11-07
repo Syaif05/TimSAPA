@@ -1,3 +1,6 @@
+import { normalizePhone } from './utils/phoneUtils'
+import { useJakartaDate } from './hooks/useJakartaDate'
+import { podStorageKeys } from './utils/podSession'
 import { summarizeOrders } from './utils/orderState'
 import { GoogleAdmin, GoogleSourceProvider } from './cloud/GoogleAdmin'
 import { workspaceAppearance, imageSettingsOnly, saveImageSettings } from './utils/appearance'
@@ -263,10 +266,14 @@ function WorkspaceApp() {
     if (!monitoringRows.length) return []
 
     // 1. Cocokkan dengan master contacts
-    const enriched = matchSapaWithContacts(monitoringRows, masterContacts, { preferMasterContacts: true })
+    const enriched = matchSapaWithContacts(monitoringRows, masterContacts, { preferMasterContacts: true }).map(row => {
+      const name=String(row.resolvedAcName||'').trim().toUpperCase()
+      const override=phoneOverrides[`WA:${normalizePhone(row.resolvedPhone)}`] || phoneOverrides[`${row.source}::${name}`] || phoneOverrides[name] || phoneOverrides[row.resolvedAcName]
+      return override ? {...row,resolvedPhone:override} : row
+    })
 
     // 2. Kelompokkan per AC
-    const groups = groupRowsByAc(enriched, activeStatusMap, { workingOnly: true, splitSources: true })
+    const groups = groupRowsByAc(enriched, activeStatusMap, { workingOnly: true, mergeContacts: true })
 
     // 3. Terapkan manual phone overrides jika ada
     return groups.map((g) => {
@@ -288,16 +295,17 @@ function WorkspaceApp() {
   }, [acGroups, sentStatusMap, statuses])
 
   // Hitung perkiraan pending POD untuk badge navigasi
+  const podDate = useJakartaDate()
   const podPendingCount = useMemo(() => {
     try {
-      const rows = JSON.parse(storage.getItem('sapa_pod_rows') || '[]')
-      const today = new Date().toISOString().slice(0, 10)
-      const st = JSON.parse(storage.getItem(`sapa_pod_status_${today}`) || '{}')
+      const keys = podStorageKeys(podDate)
+      const rows = JSON.parse(storage.getItem(keys.rows) || '[]')
+      const st = JSON.parse(storage.getItem(keys.status) || '{}')
       return rows.filter((r) => st[r.acKey]?.status !== 'sent').length
     } catch {
       return 0
     }
-  }, [activeTab])
+  }, [activeTab, storage, podDate])
 
   const activeTemplate = templates[activeTemplateKey] || DEFAULT_TEMPLATES.template_1
 
