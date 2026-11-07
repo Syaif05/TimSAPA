@@ -1,3 +1,4 @@
+import { recordActivity } from '../utils/activityTracker'
 import React, { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Copy, ClipboardList, Check } from 'lucide-react'
 import { allWorkNotes, groupWorkResults, workProgress, WORK_FIELDS } from '../utils/hasilKerja'
@@ -18,6 +19,7 @@ function WorkChecklist({ groups, storageKey, storage, showToast }) {
   const notes = allWorkNotes(groups)
   const toggle = (group, completed) => {
     const next = { ...checks }
+    if (completed) recordActivity('work_check',group.shipments.length,'hasil-kerja')
     if (completed) next[group.key] = group.signature
     else delete next[group.key]
     setChecks(next)
@@ -47,7 +49,7 @@ function CopyText({ value, label, showToast }) {
     return () => clearTimeout(timer)
   }, [copiedValue])
   const copy = async () => {
-    try { await navigator.clipboard.writeText(value); setCopiedValue(value) }
+    try { await navigator.clipboard.writeText(value); recordActivity('work_copy',1,'hasil-kerja'); setCopiedValue(value) }
     catch { showToast('Gagal menyalin. Pilih teks dan salin manual.', 'error') }
   }
   return <div className="work-copy-wrap"><button type="button" className={`work-copy-text ${copied ? 'is-copied' : ''}`} onClick={copy} aria-label={`Salin ${label}`} title={value}><span className={expanded ? '' : 'work-clamped'}>{value}</span><span className="work-copy-indicator">{copied ? <Check size={15}/> : <Copy size={15}/>}<span className="sr-only" role="status">{copied ? `${label} disalin` : ''}</span></span></button>{value.length > 100 && <button type="button" className="work-expand" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? 'Ringkas' : 'Lihat lengkap'}</button>}</div>

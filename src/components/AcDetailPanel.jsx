@@ -1,3 +1,4 @@
+import { recordActivity } from '../utils/activityTracker'
 import { orderSetKey, reconcileOrderDraft } from '../utils/orderState'
 import { OrderSheetEditor } from '../cloud/OrderSheetEditor'
 import React, { useState, useRef, useEffect } from 'react'
@@ -53,7 +54,7 @@ export function AcDetailPanel({
 
   const { handleOpenWhatsApp, isOpeningWhatsApp } = useWhatsAppChat({
     phone, message, tableRef, tableSettings, showToast,
-    onOpened: () => onStatusChange(acGroup.acKey, 'sudah_dihubungi'),
+    onOpened: () => { recordActivity('monitoring_chat',acGroup.totalShipments,'workspace'); onStatusChange(acGroup.acKey, 'sudah_dihubungi') },
   })
 
   if (!acGroup) {

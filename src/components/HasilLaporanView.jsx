@@ -1,3 +1,4 @@
+import { recordActivity } from '../utils/activityTracker'
 import { REPORT_DESIGN, cleanReportDesign, reportPeriodAt } from '../utils/reportDesign'
 import { sourceRequest } from '../cloud/GoogleAdmin'
 import { FileUpload } from './FileUpload'
@@ -89,7 +90,7 @@ export function HasilLaporanView({ storage, pic, showToast }) {
       if (!workbook.SheetNames.length) throw new Error('File tidak memiliki worksheet.')
       const name = workbook.SheetNames.find(item => item.toLowerCase() === 'history') || workbook.SheetNames[0]
       await loadSheet(workbook, name)
-      setBook(workbook); setFilename(file.name)
+      recordActivity('report_upload',workbook.SheetNames.length,'hasil-laporan'); setBook(workbook); setFilename(file.name)
     } catch (cause) { setImported(null); setBook(null); setFilename(''); setError(cause.message) }
     finally { setBusy('') }
   }
@@ -101,8 +102,8 @@ export function HasilLaporanView({ storage, pic, showToast }) {
       if (mode === 'copy') {
         const result = await copyTableImageToClipboard(node, { pixelRatio:4 })
         if (!result.success) throw new Error(result.error)
-        setCopied(true); showToast?.('Gambar laporan disalin.', 'success')
-      } else await downloadTableImage(node, `hasil-laporan-${options.start || 'semua-tanggal'}-${target}.png`, { pixelRatio:4 })
+        recordActivity('report_copy',report.shipments,'hasil-laporan'); setCopied(true); showToast?.('Gambar laporan disalin.', 'success')
+      } else {await downloadTableImage(node, `hasil-laporan-${options.start || 'semua-tanggal'}-${target}.png`, { pixelRatio:4 });recordActivity('report_export',report.shipments,'hasil-laporan')}
     } catch (cause) { showToast?.(cause.message || 'Gagal membuat gambar laporan.', 'error') }
     finally { setBusy('') }
   }

@@ -1,3 +1,4 @@
+import { useActivity } from './hooks/useActivity'
 import { normalizePhone } from './utils/phoneUtils'
 import { useJakartaDate } from './hooks/useJakartaDate'
 import { podStorageKeys } from './utils/podSession'
@@ -79,6 +80,7 @@ function WorkspaceApp() {
 
   // 2. Active Tab
   const [activeTab, setActiveTab] = useState('workspace')
+  useActivity(profile.name,activeTab)
   const [tarikVisited, setTarikVisited] = useState(false)
   useEffect(() => { if (activeTab === 'tarik-data') setTarikVisited(true) }, [activeTab])
   const [reportVisited, setReportVisited] = useState(false)

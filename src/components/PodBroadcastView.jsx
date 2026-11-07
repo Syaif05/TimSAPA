@@ -1,3 +1,4 @@
+import { recordActivity } from '../utils/activityTracker'
 import { useJakartaDate } from '../hooks/useJakartaDate'
 import { podStorageKeys } from '../utils/podSession'
 import { requestWhatsAppTab } from '../utils/whatsappBridge'
@@ -201,6 +202,7 @@ function PodBroadcastSession({ date, masterContacts, contactsReady, showToast })
     } catch { showToast?.('Gagal membuka tab WhatsApp yang sudah ada.', 'error'); return false }
     finally { sendingRef.current = false; setSending(false) }
 
+    recordActivity('pod_open',item.shipmentCount,'pod')
     // Update status ke 'sent'
     setStatusMap((prev) => ({
       ...prev,

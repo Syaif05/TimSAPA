@@ -1,3 +1,4 @@
+import { cleanActivity, activityRange } from './activity.js'
 import { createTarikUpdater } from './tarikUpdate.js'
 import { cleanReportDesign } from '../src/utils/reportDesign.js'
 import { createGoogleOAuth, tokenCipher, randomToken, digest, httpError, normalizeEmail, SHEETS_SCOPE } from './googleOAuth.js'
@@ -140,7 +141,7 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
           await database('sapa_source_cache?on_conflict=cache_key', { method: 'POST', body: { cache_key: 'settings:followup-design', snapshot, expires_at: '9999-12-31T00:00:00Z' }, prefer: 'resolution=merge-duplicates,return=minimal' })
           return json(snapshot)
         }
-        if (!path.startsWith('/api/auth/') && !path.startsWith('/api/admin/') && path !== '/api/orders' && path !== '/api/tarik-update' && !(enabled && ['/api/sheets', '/api/contacts'].includes(path))) return null
+        if (!path.startsWith('/api/auth/') && !path.startsWith('/api/admin/') && path !== '/api/orders' && path !== '/api/tarik-update' && path !== '/api/activity' && !(enabled && ['/api/sheets', '/api/contacts'].includes(path))) return null
         requireConfig()
         // Enabling admin login must not interrupt the existing public monitoring
         // while the manager has yet to connect their Google account. Both readers
@@ -155,6 +156,17 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
           const token = cookies(request).sapa_admin
           if (token) await database(queryPath('sapa_admin_sessions', { token_hash: `eq.${digest(token)}` }), { method: 'DELETE' })
           return json({ signedOut: true }, 200, { 'Set-Cookie': cookie('sapa_admin', '', 0) })
+        }
+        if (path === '/api/activity' && request.method === 'POST') {
+          sameOrigin(request)
+          const {pic,events}=cleanActivity(await bodyOf(request))
+          if (!(await database(queryPath('sapa_pic_profiles',{name:`eq.${pic}`,select:'name'}))).length) throw httpError(403,'PIC tidak terdaftar.')
+          await database('sapa_pic_activity?on_conflict=id',{method:'POST',body:events,prefer:'resolution=ignore-duplicates,return=minimal'})
+          return json({saved:true})
+        }
+        if (path === '/api/admin/analytics' && request.method === 'GET') {
+          await requireAdmin(request)
+          return json(await database('rpc/sapa_activity_summary',{method:'POST',body:activityRange(url,now())}))
         }
         if (path === '/api/admin/settings' && request.method === 'PUT') {
           sameOrigin(request); await requireAdmin(request)

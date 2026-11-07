@@ -1,3 +1,4 @@
+import { recordActivity } from '../utils/activityTracker'
 import React, { useMemo, useState } from 'react'
 import { Copy, Download, MessageCircle, Search } from 'lucide-react'
 import { buildAcDirectory, contactArea, filterAcContacts } from '../utils/acDirectory'
@@ -43,6 +44,7 @@ export function HubAcView({ contacts = [], ready, showToast }) {
     try {
       const result = await requestWhatsAppTab('SAPA_WA_OPEN', createWhatsAppWebUrl(ac.phone, renderAcAnnouncement(message, ac)))
       if (!result.ok) throw new Error(result.error || 'WhatsApp belum terhubung.')
+      recordActivity('hub_chat',1,'hub-ac')
       setOpened(previous => new Set([...previous, ac.key]))
       showToast('Draf dibuka. Tekan Kirim di WhatsApp.', 'success')
     } catch (error) { showToast(error.message, 'error') }

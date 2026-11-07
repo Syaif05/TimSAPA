@@ -300,3 +300,15 @@ test('direct tarik update requires same origin, registered PIC and enabled edits
  database.tables.get('sapa_source_settings')[0].allow_pic_edits=false
  assert.equal((await app.handle(req('/api/tarik-update',{method:'POST',body:{...payload,pic:'PIC TEST'}}))).status,403)
 })
+
+test('analytics is admin-only and activity ingestion requires same-origin registered PIC',async()=>{
+ const {app,database}=appFixture()
+ assert.equal((await app.handle(req('/api/admin/analytics'))).status,401)
+ const body={pic:'PIC TEST',events:[{id:'11111111-1111-4111-8111-111111111111',session:'22222222-2222-4222-8222-222222222222',action:'report_copy',feature:'hasil-laporan',units:5}]}
+ assert.equal((await app.handle(req('/api/activity',{method:'POST',origin:'https://evil.example',body}))).status,403)
+ assert.equal((await app.handle(req('/api/activity',{method:'POST',body:{...body,pic:'UNKNOWN'}}))).status,403)
+ assert.equal((await app.handle(req('/api/activity',{method:'POST',body}))).status,200)
+ const stored=database.tables.get('sapa_pic_activity')[0]
+ assert.equal(stored[0].pic,'PIC TEST')
+ assert.equal(stored[0].feature,'hasil-laporan')
+})

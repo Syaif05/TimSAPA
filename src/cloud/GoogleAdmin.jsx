@@ -1,14 +1,10 @@
+import { AdminAnalytics } from './AdminAnalytics'
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { ArrowLeft, ArrowUpRight, Check, ChevronRight, Cloud, ContactRound, Database, History, LayoutDashboard, LockKeyhole, LogOut, RefreshCw, ShieldCheck } from 'lucide-react'
 const SourceContext = createContext({ canEdit: false })
 export const useSourceAccess = () => useContext(SourceContext)
-export async function sourceRequest(path, options = {}) {
-  const response = await fetch(path, { ...options, cache: 'no-store', signal: AbortSignal.timeout(45000), headers: { 'Content-Type': 'application/json', ...options.headers }, ...(options.body ? { body: JSON.stringify(options.body) } : {}) })
-  if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('Layanan server belum tersedia.')
-  const data = await response.json()
-  if (!response.ok) throw new Error(data.error || 'Permintaan gagal.')
-  return data
-}
+import { sourceRequest } from './sourceRequest'
+export { sourceRequest } from './sourceRequest'
 export function GoogleSourceProvider({ children }) {
   const [state, setState] = useState({ canEdit: false })
   useEffect(() => {
@@ -22,7 +18,8 @@ export function GoogleSourceProvider({ children }) {
 }
 // Separate URL, deliberately absent from PIC navigation. The server is the security boundary.
 const adminSections = [
-  { id: 'overview', label: 'Ringkasan', icon: LayoutDashboard, description: 'Status sistem dan pintasan pengelolaan' },
+  { id: 'overview', label: 'Ringkasan', icon: LayoutDashboard, description: 'Aktivitas tim, penggunaan fitur dan perbandingan PIC' },
+  { id:'system',label:'Status sistem',icon:Cloud,description:'Koneksi dan pintasan pengelolaan' },
   { id: 'source', label: 'Sumber data', icon: Database, description: 'Koneksi Google untuk Monitoring' },
   { id: 'contacts', label: 'Kontak', icon: ContactRound, description: 'Sumber kontak dan pembaruan cache' },
   { id: 'access', label: 'Akses PIC', icon: ShieldCheck, description: 'Izin perubahan data Monitoring' },
@@ -120,7 +117,8 @@ export function GoogleAdmin() {
       <div className="admin-content"><div className="admin-page-heading"><div><div className="admin-eyebrow">PENGELOLAAN SAPA</div><h1>{section.label}</h1><p>{section.description}</p></div><span className="admin-role-badge"><LockKeyhole size={13}/> Super admin</span></div>
         {error && <div className="admin-alert admin-alert-error" role="alert">{error}</div>}
         {saved && <div className="admin-alert admin-alert-success" role="status"><Check size={16}/> Pengaturan tersimpan.</div>}
-        {page === 'overview' && <><div className="admin-stat-grid">
+        {page === 'overview' && <AdminAnalytics/>}
+        {page === 'system' && <><div className="admin-stat-grid">
           <button className="admin-stat-card" onClick={() => navigate('source')}><div className="admin-stat-icon blue"><Cloud size={20}/></div><span>Sumber Google</span><strong>{state.connected ? 'Terhubung' : 'Perlu dihubungkan'}</strong><small>{state.connectedEmail || 'Hubungkan akun Google sumber'}</small><ChevronRight size={16}/></button>
           <button className="admin-stat-card" onClick={() => navigate('contacts')}><div className="admin-stat-icon green"><ContactRound size={20}/></div><span>Kontak</span><strong>{state.contactsSpreadsheetId ? 'Google Sheets' : 'Excel sumber lama'}</strong><small>Cache database diperbarui setiap 24 jam</small><ChevronRight size={16}/></button>
           <button className="admin-stat-card" onClick={() => navigate('access')}><div className="admin-stat-icon amber"><ShieldCheck size={20}/></div><span>Edit oleh PIC</span><strong>{state.allowPicEdits ? 'Diizinkan' : 'Dinonaktifkan'}</strong><small>Status dan Kendala Monitoring</small><ChevronRight size={16}/></button>

@@ -1,3 +1,4 @@
+import { recordActivity } from '../utils/activityTracker'
 import { FileUpload } from './FileUpload'
 import React, { useMemo, useState } from 'react'
 import { sourceRequest } from '../cloud/GoogleAdmin'
@@ -47,7 +48,7 @@ export function TarikDataView({ contacts = [], contactsReady = false, monitoring
       if (file.size > 20_000_000) throw new Error('Ukuran CSV maksimal 20 MB.')
       const result = parseTarikCsv(await file.text(), contacts)
       if (!result.length) throw new Error('CSV tidak berisi pesanan.')
-      setRows(result); setFilename(file.name); setSource('REG')
+      recordActivity('tarik_upload',result.length,'tarik-data'); setRows(result); setFilename(file.name); setSource('REG')
       await checkMonitoring(result)
     } catch (cause) { setError(cause.message) }
     event.target.value = ''
@@ -61,6 +62,7 @@ export function TarikDataView({ contacts = [], contactsReady = false, monitoring
       if (navigator.clipboard.write && window.ClipboardItem) {
         await navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([plain], {type:'text/plain'}), 'text/html': new Blob([tarikHtml(fresh)], {type:'text/html'}) })])
       } else await navigator.clipboard.writeText(plain)
+      recordActivity('tarik_copy',fresh.length,'tarik-data')
       const ignored = current.duplicate.filter(row => row.source === source).length
       setCopyReport({ source, copied: fresh.length, ignored })
       showToast?.(`${fresh.length} shipment baru ${source} disalin; ${ignored} duplikat diabaikan.`, 'success')
@@ -71,6 +73,7 @@ export function TarikDataView({ contacts = [], contactsReady = false, monitoring
     setUpdating(true); setUpdateReport(null); setError('')
     try {
       const result = await sourceRequest('/api/tarik-update', {method:'POST',body:{pic:profile.name,date:jakartaDate(),source,rows:rows.filter(row=>row.source===source)}})
+      recordActivity('tarik_update',result.inserted,'tarik-data')
       setUpdateReport(result)
       showToast?.(`${result.inserted} baris ${source} ditambahkan; ${result.ignored} duplikat diabaikan.`, 'success')
       await checkMonitoring(rows)
