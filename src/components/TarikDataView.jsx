@@ -10,7 +10,6 @@ export function TarikDataView({ contacts = [], contactsReady = false, monitoring
   const profile = usePicProfile()
   const [updating, setUpdating] = useState(false)
   const [updateReport, setUpdateReport] = useState(null)
-  const [hour, setHour] = useState(() => new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Jakarta',hour:'2-digit',hourCycle:'h23'}).format(new Date()) + ':00')
   const [rows, setRows] = useState([])
   const [comparison, setComparison] = useState(null)
   const [checking, setChecking] = useState(false)
@@ -18,7 +17,7 @@ export function TarikDataView({ contacts = [], contactsReady = false, monitoring
   const [filename, setFilename] = useState('')
   const [source, setSource] = useState('REG')
   const [error, setError] = useState('')
-  const shown = useMemo(() => (comparison?.fresh || []).filter(row => row.source === source), [comparison, source])
+  const shown = useMemo(() => (comparison?.fresh || filterNewTarikRows(rows, []).fresh).filter(row => row.source === source), [comparison, source])
   const report = useMemo(() => Object.fromEntries(['REG', 'DS'].map(type => [type, {
     total: rows.filter(row => row.source === type).length,
     fresh: comparison?.fresh.filter(row => row.source === type).length || 0,
@@ -71,7 +70,7 @@ export function TarikDataView({ contacts = [], contactsReady = false, monitoring
     if (updating) return
     setUpdating(true); setUpdateReport(null); setError('')
     try {
-      const result = await sourceRequest('/api/tarik-update', {method:'POST',body:{pic:profile.name,date:jakartaDate(),source,hour,rows:rows.filter(row=>row.source===source)}})
+      const result = await sourceRequest('/api/tarik-update', {method:'POST',body:{pic:profile.name,date:jakartaDate(),source,rows:rows.filter(row=>row.source===source)}})
       setUpdateReport(result)
       showToast?.(`${result.inserted} baris ${source} ditambahkan; ${result.ignored} duplikat diabaikan.`, 'success')
       await checkMonitoring(rows)
@@ -88,10 +87,10 @@ export function TarikDataView({ contacts = [], contactsReady = false, monitoring
     </div>
     {rows.length > 0 && <>
       <div className="tarik-results-head"><div><strong>Hasil {filename}</strong><span>{comparison ? `REG: ${report.REG.fresh} baru, ${report.REG.duplicate} duplikat · DS: ${report.DS.fresh} baru, ${report.DS.duplicate} duplikat` : 'Perbandingan Monitoring belum tersedia.'}</span><span>{rows.filter(row => !row.noAc).length} tanpa No AC · {rows.filter(row => !row.noAm).length} tanpa No AM</span></div><div className="tarik-source-tabs" role="group" aria-label="Jenis hasil"><button disabled={updating} aria-pressed={source === 'REG'} onClick={() => setSource('REG')}>REG</button><button disabled={updating} aria-pressed={source === 'DS'} onClick={() => setSource('DS')}>DS</button></div><button className="secondary-button" disabled={checking || updating} onClick={() => checkMonitoring(rows).catch(() => {})}>{checking ? 'Memeriksa…' : 'Periksa ulang'}</button><button className="primary-button" disabled={!comparison || !shown.length || checking || updating} onClick={copy}><ClipboardCopy size={15}/> Salin {source} ({shown.length})</button></div>
-      <div className="tarik-upload-panel"><label>Jam monitoring <select value={hour} disabled={updating} onChange={e=>setHour(e.target.value)}>{Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}:00`).map(value=><option key={value}>{value}</option>)}</select></label><button className="primary-button" disabled={updating || checking || !comparison || !shown.length || monitoringMode !== 'daily'} onClick={updateDirect}><UploadCloud size={16}/>{updating ? 'Memperbarui spreadsheet…' : `Update Langsung ${source} (${shown.length})`}</button><p>Tujuan: {source} {jakartaDate()} (tab hari ini). Tambahkan baris baru, isi rumus PIC, salin format/dropdown, lalu urutkan Kode Toko → Nama AC → PIC. Status dan kolom follow up baru dikosongkan. Maksimal 5.000 baris per update. Hanya berjalan saat tombol ditekan.</p>{monitoringMode !== 'daily' && <p className="tarik-warning">Pilih sumber Monitoring harian untuk Update Langsung.</p>}</div>
-      {updateReport && <p className="tarik-copy-report" role="status">Update {updateReport.source}: <strong>{updateReport.inserted} baris ditambahkan</strong> · {updateReport.ignored} duplikat diabaikan · {updateReport.sheet || 'Tidak ada data baru'}.</p>}
+      <div className="tarik-upload-panel"><button className="primary-button" disabled={updating || checking || !shown.length || monitoringMode !== 'daily'} onClick={updateDirect}><UploadCloud size={16}/>{updating ? 'Memperbarui spreadsheet…' : `Update Langsung ${source} (${shown.length})`}</button><p>Tujuan: {source} {jakartaDate()} (tab hari ini). Hanya menulis nilai B:L, sama dengan Salin manual. Tidak mengubah kolom lain, format, dropdown, rumus, atau urutan baris. Jika tab hari ini belum ada, duplikat REG dan DS kemarin dan sisakan baris 1–3 pada tab baru. Maksimal 5.000 baris per update. Hanya berjalan saat tombol ditekan.</p>{monitoringMode !== 'daily' && <p className="tarik-warning">Pilih sumber Monitoring harian untuk Update Langsung.</p>}</div>
+      {updateReport && <p className="tarik-copy-report" role="status">Update {updateReport.source}: <strong>{updateReport.inserted} baris ditambahkan</strong> · {updateReport.ignored} duplikat diabaikan · {updateReport.sheet || 'Tidak ada data baru'}.{updateReport.createdSheets?.length > 0 && ` Tab baru: ${updateReport.createdSheets.join(', ')}; baris 1–3 dipertahankan.`}</p>}
       <div className="tarik-table-wrap"><table className="tarik-table"><thead><tr>{TARIK_COLUMNS.map(([field,label]) => <th key={field}>{label}</th>)}</tr></thead><tbody>{shown.slice(0,100).map((row,index) => <tr key={`${row.shipment}-${index}`}>{TARIK_COLUMNS.map(([field]) => <td key={field} title={row[field]}>{row[field] || '—'}</td>)}</tr>)}</tbody></table></div>
-      <p className="tarik-result-note">{report[source].total} baris {source} ditarik · {report[source].fresh} baru siap disalin · {report[source].duplicate} duplikat diabaikan. Pratinjau menampilkan maksimal 100 baris baru; Salin memuat seluruh baris baru tanpa nama kolom.</p>
+      <p className="tarik-result-note">{!comparison && 'Perbandingan belum tersedia. Pratinjau ini hanya menghapus duplikat dalam CSV; server mengecek ulang saat Update Langsung. '}{report[source].total} baris {source} ditarik · {report[source].fresh} baru siap disalin · {report[source].duplicate} duplikat diabaikan. Pratinjau menampilkan maksimal 100 baris baru; Salin memuat seluruh baris baru tanpa nama kolom.</p>
       {copyReport && <p className="tarik-copy-report" role="status">Penyalinan terakhir {copyReport.source}: <strong>{copyReport.copied} baris berhasil disalin</strong> · {copyReport.ignored} baris duplikat diabaikan.</p>}
     </>}
   </section>
