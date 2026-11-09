@@ -49,25 +49,58 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
     const saved = await connection()
     if (!saved) throw httpError(503, 'Akun Google pengelola belum terhubung. Hubungi super admin.')
     if (access?.version === saved.updated_at && access.until > now() + 60000) return access.token
-    if (!refreshing) refreshing = (async () => {
-      const tokens = cipher().open(saved.encrypted_tokens, 'google-connection')
-      const fresh = await googleOAuth().refresh(tokens.refresh_token)
-      if (!fresh.access_token) throw httpError(401, 'Izin akun Google perlu dihubungkan kembali oleh super admin.')
-      access = { token: fresh.access_token, until: now() + Number(fresh.expires_in || 3600) * 1000, version: saved.updated_at }
+    const tokens = cipher().open(saved.encrypted_tokens, 'google-connection')
+    if (tokens.access_token && Number(tokens.access_until) > now() + 60000) {
+      access = { token: tokens.access_token, until: tokens.access_until, version: saved.updated_at }
       return access.token
+    }
+    if (!refreshing) refreshing = (async () => {
+      const fresh = await googleOAuth().refresh(tokens.refresh_token)
+      if (!fresh.access_token) throw Object.assign(httpError(502, 'Google belum mengirim access token. Coba Periksa ulang.'), { code: 'GOOGLE_TEMPORARY', retryable: true })
+      const until = now() + Number(fresh.expires_in || 3600) * 1000
+      const version = new Date(now()).toISOString()
+      const next = { ...tokens, refresh_token: fresh.refresh_token || tokens.refresh_token, access_token: fresh.access_token, access_until: until, granted_at: tokens.granted_at || saved.updated_at }
+      // Compare ciphertext as well as timestamp so a new admin grant always wins.
+      const stored = await database(queryPath('sapa_google_connection', { id: 'eq.main', updated_at: `eq.${saved.updated_at}`, encrypted_tokens: `eq.${saved.encrypted_tokens}` }), { method: 'PATCH', body: { encrypted_tokens: cipher().seal(next, 'google-connection'), updated_at: version } })
+      if (stored.length) {
+        access = { token: fresh.access_token, until, version: stored[0].updated_at }
+        return access.token
+      }
+      const latest = await connection()
+      if (!latest) throw httpError(503, 'Koneksi Google berubah. Periksa ulang.')
+      const newer = cipher().open(latest.encrypted_tokens, 'google-connection')
+      if (newer.access_token && Number(newer.access_until) > now() + 60000) {
+        access = { token: newer.access_token, until: newer.access_until, version: latest.updated_at }
+        return access.token
+      }
+      throw httpError(503, 'Koneksi Google baru saja berubah. Coba Periksa ulang.')
     })().finally(() => { refreshing = null })
     return refreshing
   }
   async function googleRequest(id, suffix, options = {}) {
     const settings = await sourceSettings()
     if (![SPREADSHEET_ID, CONTACTS_SOURCE.id, settings.contacts_spreadsheet_id].filter(Boolean).includes(id)) throw httpError(403, 'Spreadsheet tidak diizinkan.')
-    const token = await accessToken()
+    let token = await accessToken()
     let response
-    try { response = await fetchImpl(`https://sheets.googleapis.com/v4/spreadsheets/${id}${suffix}`, { method: options.method || 'GET', signal: AbortSignal.timeout(25000), headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...(options.body ? { body: JSON.stringify(options.body) } : {}) }) }
-    catch { throw httpError(502, options.method ? 'Respons perubahan belum diterima. Sinkronkan dan periksa hasil sebelum mencoba lagi.' : 'Sheets API belum merespons. Data terakhir tetap tersedia.') }
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try { response = await fetchImpl(`https://sheets.googleapis.com/v4/spreadsheets/${id}${suffix}`, { method: options.method || 'GET', signal: AbortSignal.timeout(25000), headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...(options.body ? { body: JSON.stringify(options.body) } : {}) }) }
+      catch { throw httpError(502, options.method ? 'Respons perubahan belum diterima. Sinkronkan dan periksa hasil sebelum mencoba lagi.' : 'Sheets API belum merespons. Data terakhir tetap tersedia.') }
+      if (response.status !== 401 || attempt === 1) break
+      if (access?.token === token) access = null
+      // Only an explicit rejection is safe to retry, including for writes.
+      const saved = await connection()
+      if (saved) {
+        const tokens = cipher().open(saved.encrypted_tokens, 'google-connection')
+        if (tokens.access_token === token) await database(queryPath('sapa_google_connection', { id: 'eq.main', updated_at: `eq.${saved.updated_at}`, encrypted_tokens: `eq.${saved.encrypted_tokens}` }), { method: 'PATCH', body: { encrypted_tokens: cipher().seal({ ...tokens, access_token: null, access_until: 0 }, 'google-connection') } })
+      }
+      token = await accessToken()
+    }
     const data = await response.json()
     if (!response.ok) {
-      if (response.status === 401) { access = null; throw httpError(401, 'Izin Google kedaluwarsa atau dicabut. Super admin perlu menghubungkan ulang akun.') }
+      if (response.status === 401) {
+        access = null
+        throw Object.assign(httpError(401, 'Google tetap menolak token setelah diperbarui. Super admin perlu memeriksa koneksi Google.'), { code: 'GOOGLE_AUTH_FAILED' })
+      }
       if (response.status === 403) throw httpError(403, 'Akun pengelola belum memiliki izin file, atau Google Sheets API belum diaktifkan.')
       if (response.status === 429) throw httpError(429, 'Batas permintaan Google tercapai. Pembaruan akan dicoba kembali.')
       throw httpError(502, 'Google tidak dapat membaca file/range. Pastikan file Google Sheets asli dan nama tab sesuai.')
@@ -99,9 +132,9 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
       const admin = await requireAdmin(request)
       if (admin.email !== flow.email || admin.token_hash !== flow.sessionHash || identity.email !== admin.email) throw httpError(403, 'Gunakan akun Google super admin yang sedang masuk.')
       if (!String(tokens.scope || '').split(' ').includes(SHEETS_SCOPE) || !tokens.refresh_token) throw httpError(422, 'Izin spreadsheet/offline belum diberikan. Ulangi Hubungkan Google dan berikan izin yang diminta.')
-      await database('sapa_google_connection?on_conflict=id', { method: 'POST', body: { id: 'main', email: identity.email, encrypted_tokens: cipher().seal({ refresh_token: tokens.refresh_token }, 'google-connection'), updated_at: new Date(now()).toISOString() }, prefer: 'resolution=merge-duplicates,return=minimal' })
+      await database('sapa_google_connection?on_conflict=id', { method: 'POST', body: { id: 'main', email: identity.email, encrypted_tokens: cipher().seal({ refresh_token:tokens.refresh_token,access_token:tokens.access_token,access_until:now()+Number(tokens.expires_in||3600)*1000,granted_at:new Date(now()).toISOString() }, 'google-connection'), updated_at: new Date(now()).toISOString() }, prefer: 'resolution=merge-duplicates,return=minimal' })
       access = null
-      await database('sapa_source_cache?cache_key=not.is.null', { method: 'DELETE' })
+      await database(queryPath('sapa_source_cache',{cache_key:'like.monitoring:*'}), { method: 'DELETE' })
     } else {
       const token = randomToken()
       await database(queryPath('sapa_admin_sessions', { expires_at: `lt.${new Date(now()).toISOString()}` }), { method: 'DELETE' })
@@ -167,6 +200,11 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
         if (path === '/api/admin/analytics' && request.method === 'GET') {
           await requireAdmin(request)
           return json(await database('rpc/sapa_activity_summary',{method:'POST',body:activityRange(url,now())}))
+        }
+        if(path==='/api/admin/google-health' && request.method==='GET') {
+          await requireAdmin(request)
+          try {await accessToken();return json({status:'healthy',checkedAt:new Date(now()).toISOString()})}
+          catch(error){return json({status:error.code==='GOOGLE_RECONNECT_REQUIRED'?'reconnect_required':error.code==='GOOGLE_CLIENT_CONFIG'?'configuration_error':'temporary_error',code:error.code||'',message:error.message,checkedAt:new Date(now()).toISOString()})}
         }
         if (path === '/api/admin/settings' && request.method === 'PUT') {
           sameOrigin(request); await requireAdmin(request)
@@ -234,7 +272,7 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
         const status = error.status || 502
         const message = error.status ? error.message : 'Koneksi server belum merespons. Data terakhir tetap dipertahankan.'
         if (path === '/api/auth/callback' && env.APP_ORIGIN) return new Response(null, { status: 302, headers: { 'Cache-Control': 'no-store', Location: `${origin()}/admin?error=${encodeURIComponent(message)}`, 'Set-Cookie': cookie('sapa_oauth', '', 0) } })
-        return json({ error: message }, status)
+        return json({ error:message,...(error.code?.startsWith('GOOGLE_')?{code:error.code,retryable:!!error.retryable}:{}) }, status)
       }
     },
   }

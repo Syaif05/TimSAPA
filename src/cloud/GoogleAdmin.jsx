@@ -29,6 +29,7 @@ const initialPage = () => adminSections.some(section => section.id === new URLSe
 
 export function GoogleAdmin() {
   const [state, setState] = useState(null)
+  const [googleHealth,setGoogleHealth] = useState(null)
   const [error, setError] = useState(() => new URLSearchParams(location.search).get('error') || '')
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -37,6 +38,12 @@ export function GoogleAdmin() {
   const [contactsSheet, setContactsSheet] = useState('KONTAK TOKO BARU')
   const [contactsRefresh, setContactsRefresh] = useState(null)
   const [page, setPage] = useState(initialPage)
+  const checkGoogleHealth = async () => {
+    setBusy(true); setError('')
+    try { setGoogleHealth(await sourceRequest('/api/admin/google-health')) }
+    catch (e) { setError(e.message) }
+    finally { setBusy(false) }
+  }
   const refresh = async () => {
     setBusy(true)
     try { setState(await sourceRequest('/api/session')) } catch (e) { setError(e.message) }
@@ -123,7 +130,25 @@ export function GoogleAdmin() {
           <button className="admin-stat-card" onClick={() => navigate('contacts')}><div className="admin-stat-icon green"><ContactRound size={20}/></div><span>Kontak</span><strong>{state.contactsSpreadsheetId ? 'Google Sheets' : 'Excel sumber lama'}</strong><small>Cache database diperbarui setiap 24 jam</small><ChevronRight size={16}/></button>
           <button className="admin-stat-card" onClick={() => navigate('access')}><div className="admin-stat-icon amber"><ShieldCheck size={20}/></div><span>Edit oleh PIC</span><strong>{state.allowPicEdits ? 'Diizinkan' : 'Dinonaktifkan'}</strong><small>Status dan Kendala Monitoring</small><ChevronRight size={16}/></button>
         </div><section className="admin-panel"><div className="admin-panel-heading"><div><h2>Pengelolaan cepat</h2><p>Pilih area yang ingin diperbarui.</p></div></div><div className="admin-shortcuts">{adminSections.slice(1).map(item => { const Icon = item.icon; return <button key={item.id} onClick={() => navigate(item.id)}><Icon size={19}/><span><strong>{item.label}</strong><small>{item.description}</small></span><ChevronRight size={16}/></button> })}</div></section></>}
-        {page === 'source' && <section className="admin-panel"><div className="admin-panel-heading"><div><h2>Koneksi Google</h2><p>Akun ini dipakai server untuk membaca spreadsheet Monitoring.</p></div><span className={`admin-status-pill ${state.connected ? 'positive' : 'warning'}`}>{state.connected ? 'Terhubung' : 'Perlu koneksi'}</span></div><div className="admin-source-detail"><div className="admin-stat-icon blue"><Cloud size={23}/></div><div><strong>{state.connectedEmail || 'Belum ada akun Google terhubung'}</strong><span>{state.connected ? 'Sumber data siap digunakan oleh SAPA.' : 'Hubungkan akun Google sebelum mengelola data sumber.'}</span></div></div><a className="admin-button admin-button-primary" href="/api/auth/connect">{state.connected ? 'Hubungkan ulang Google' : 'Hubungkan Google Sheets'} <ArrowUpRight size={16}/></a></section>}
+        {page === 'source' && <section className="admin-panel">
+          <div className="admin-panel-heading">
+            <div><h2>Koneksi Google</h2><p>Akun ini dipakai server untuk membaca spreadsheet Monitoring.</p></div>
+            <span className={`admin-status-pill ${state.connected && (!googleHealth || googleHealth.status === 'healthy') ? 'positive' : 'warning'}`}>
+              {googleHealth && googleHealth.status !== 'healthy' ? 'Perlu diperiksa' : state.connected ? 'Akun tersimpan' : 'Perlu koneksi'}
+            </span>
+          </div>
+          <div className="admin-source-detail"><div className="admin-stat-icon blue"><Cloud size={23}/></div><div>
+            <strong>{state.connectedEmail || 'Belum ada akun Google terhubung'}</strong>
+            <span>{state.connected ? 'Koneksi digunakan bersama oleh seluruh PIC.' : 'Hubungkan akun Google sebelum mengelola data sumber.'}</span>
+          </div></div>
+          <div className="admin-alert"><div>
+            <strong>Kesehatan otorisasi Google</strong>
+            <p role="status">{googleHealth ? googleHealth.status === 'healthy' ? 'Access token tersedia. Server memperbarui token otomatis saat diperlukan.' : googleHealth.message : 'Periksa token bila Monitoring atau Tarik Data mengalami gangguan.'}</p>
+            <button className="admin-button admin-button-secondary" disabled={busy || !state.connected} onClick={checkGoogleHealth}>{busy ? 'Memeriksa…' : 'Periksa otorisasi'}</button>
+            <p>Untuk penggunaan rutin, buka <a href="https://console.cloud.google.com/auth/audience?project=timsapa" target="_blank" rel="noreferrer">Google Cloud → Google Auth Platform → Audience</a> dan periksa status In production. Token aplikasi External berstatus Testing dengan izin Sheets berakhir setelah 7 hari. Setelah mengubah statusnya, Hubungkan ulang Google sekali.</p>
+          </div></div>
+          <a className="admin-button admin-button-primary" href="/api/auth/connect">{state.connected ? 'Hubungkan ulang Google' : 'Hubungkan Google Sheets'} <ArrowUpRight size={16}/></a>
+        </section>}
         {page === 'contacts' && <div className="admin-page-stack"><section className="admin-panel"><div className="admin-panel-heading"><div><h2>Sumber kontak</h2><p>Atur sumber utama nomor AC dan AM.</p></div><div className="admin-stat-icon green"><ContactRound size={19}/></div></div><form className="admin-form" onSubmit={saveContacts}><label>Tautan Google Sheets<input type="url" value={contactsUrl} placeholder="https://docs.google.com/spreadsheets/d/…" disabled={busy} onChange={e => setContactsUrl(e.target.value)}/></label><label>Nama tab kontak<input value={contactsSheet} maxLength={150} required disabled={busy} onChange={e => setContactsSheet(e.target.value)}/></label><p>Kosongkan tautan untuk memakai file Excel sumber lama.</p><button className="admin-button admin-button-primary" disabled={busy} type="submit">Simpan sumber kontak</button></form></section><section className="admin-panel"><div className="admin-panel-heading"><div><h2>Cache kontak</h2><p>Data tersimpan di database selama 24 jam dan diperbarui saat ada kunjungan berikutnya.</p></div><RefreshCw size={19}/></div><button className="admin-button admin-button-secondary" disabled={busy} onClick={refreshContacts}><RefreshCw size={16}/> {busy ? 'Memperbarui…' : 'Perbarui kontak sekarang'}</button>{contactsRefresh && <div className="admin-alert admin-alert-success" role="status"><Check size={16}/>{contactsRefresh.count.toLocaleString('id-ID')} kontak diperbarui · {new Date(contactsRefresh.fetchedAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB.</div>}</section></div>}
         {page === 'access' && <section className="admin-panel"><div className="admin-panel-heading"><div><h2>Izin edit oleh PIC</h2><p>Kendalikan apakah PIC dapat mengubah Status dan Kendala di Monitoring.</p></div><div className="admin-stat-icon amber"><ShieldCheck size={20}/></div></div><label className="admin-toggle-row"><span><strong>Izinkan perubahan oleh PIC</strong><small>{state.allowPicEdits ? 'PIC dapat menyimpan perubahan pada kolom yang diizinkan.' : 'Perubahan oleh PIC sedang dinonaktifkan.'}</small></span><input type="checkbox" role="switch" checked={!!state.allowPicEdits} disabled={busy} onChange={toggle}/></label><p className="admin-panel-note">Hanya Status dan Kendala yang dapat diubah melalui aplikasi. Setiap perubahan tercatat pada Riwayat.</p></section>}
         {page === 'audit' && <section className="admin-panel"><div className="admin-panel-heading"><div><h2>Riwayat perubahan</h2><p>Aktivitas terbaru pada data pesanan Monitoring.</p></div><button className="admin-button admin-button-secondary" disabled={busy} onClick={loadAudit}><RefreshCw size={15}/>{busy ? 'Memuat…' : audit ? 'Muat ulang' : 'Tampilkan riwayat'}</button></div>{audit === null ? <div className="admin-empty"><History size={25}/><strong>Riwayat siap ditampilkan</strong><p>Klik Tampilkan riwayat untuk mengambil aktivitas terbaru.</p></div> : audit.length ? <div className="admin-audit-list">{audit.map(item => <div key={item.id} className="admin-audit-item"><div><strong>{item.source} · {item.shipment}</strong><span>{item.actor}</span></div><div><span className={`admin-status-pill ${item.outcome === 'completed' ? 'positive' : 'warning'}`}>{item.outcome}</span><time>{new Date(item.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB</time></div></div>)}</div> : <div className="admin-empty"><History size={25}/><strong>Belum ada perubahan</strong><p>Aktivitas edit akan muncul di sini.</p></div>}</section>}

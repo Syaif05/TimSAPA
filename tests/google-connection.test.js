@@ -26,7 +26,7 @@ function memoryDatabase() {
       if (['select', 'order', 'limit', 'on_conflict'].includes(key)) return true
       if (match === 'not.is.null') return row[key] != null
       const i = match.indexOf('.'); const op = match.slice(0, i); const value = match.slice(i + 1)
-      return op === 'eq' ? String(row[key]) === value : op === 'gt' ? row[key] > value : op === 'lt' ? row[key] < value : false
+      return op === 'like' ? String(row[key]).startsWith(value.replace(/\*$/, '')) : op === 'eq' ? String(row[key]) === value : op === 'gt' ? row[key] > value : op === 'lt' ? row[key] < value : false
     })
     if (options.method === 'POST') {
       const previous = keys[table] && rows.find(r => r[keys[table]] === options.body[keys[table]])
@@ -42,11 +42,11 @@ function memoryDatabase() {
   return database
 }
 const req = (path, { method = 'GET', cookie, body, origin = env.APP_ORIGIN } = {}) => new Request(`${env.APP_ORIGIN}${path}`, { method, headers: { ...(cookie ? { Cookie: cookie } : {}), ...(body ? { Origin: origin, 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) })
-function appFixture(overrides = {}) {
+function appFixture(overrides = {}, options = {}) {
   const database = memoryDatabase()
   const actual = createGoogleOAuth({ clientId: env.GOOGLE_CLIENT_ID, clientSecret: '', redirectUri: `${env.APP_ORIGIN}/api/auth/callback` })
   const oauth = { authorization: actual.authorization, exchange: async () => ({ identity: { sub: 'google-test', email: 'admin@example.com' }, tokens: { refresh_token: 'test-refresh-token', scope: `openid email ${SHEETS_SCOPE}` } }), refresh: async () => ({ access_token: 'test-access', expires_in: 3600 }), ...overrides }
-  const app = createGoogleApplication({ env, database, oauth, now: () => time })
+  const app = createGoogleApplication({ env, database, oauth, now: () => time, ...options })
   return { app, database, oauth }
 }
 async function login(app) {
@@ -311,4 +311,136 @@ test('analytics is admin-only and activity ingestion requires same-origin regist
  const stored=database.tables.get('sapa_pic_activity')[0]
  assert.equal(stored[0].pic,'PIC TEST')
  assert.equal(stored[0].feature,'hasil-laporan')
+})
+
+
+test('OAuth refresh retries temporary failures once without disguising revoked grants or invalid clients', async () => {
+  for (const failure of ['network', 429, 503]) {
+    let calls = 0
+    const oauth = createGoogleOAuth({ clientId:'test', clientSecret:'secret', fetchImpl:async () => {
+      calls++
+      if (calls === 1) {
+        if (failure === 'network') throw new Error('network')
+        return Response.json({error:'temporarily_unavailable'}, {status:failure})
+      }
+      return Response.json({access_token:'refreshed', expires_in:3600})
+    } })
+    assert.equal((await oauth.refresh('refresh')).access_token, 'refreshed')
+    assert.equal(calls, 2)
+  }
+  for (const [error,code,status] of [['invalid_grant','GOOGLE_RECONNECT_REQUIRED',401],['invalid_client','GOOGLE_CLIENT_CONFIG',503],['temporarily_unavailable','GOOGLE_TEMPORARY',502]]) {
+    let calls = 0
+    const oauth = createGoogleOAuth({clientId:'test',fetchImpl:async () => {calls++;return Response.json({error,error_description:'secret diagnostic marker'},{status:error==='temporarily_unavailable'?503:400})}})
+    await assert.rejects(oauth.refresh('refresh'), e => e.code===code && e.status===status && !e.message.includes('secret diagnostic marker'))
+    assert.equal(calls, error==='temporarily_unavailable'?2:1)
+  }
+})
+
+function seedGoogleConnection(database, tokens) {
+  const row = {id:'main',email:'admin@example.com',updated_at:new Date(time-86400000).toISOString(),encrypted_tokens:tokenCipher(env.SAPA_TOKEN_ENCRYPTION_KEY).seal(tokens,'google-connection')}
+  database.tables.set('sapa_google_connection',[row])
+  return row
+}
+const fakeSheetsResponse = url => Response.json(url.includes('?fields=')
+  ? {sheets:['REG','DS'].map((key,i)=>({properties:{sheetId:i+1,title:`${key} 01/11`}}))}
+  : url.includes('/values:batchGet') ? {valueRanges:[{values:[header,cells]},{values:[header,cells]}]}
+  : {values:[header]})
+
+test('overnight refresh is coalesced, encrypted and reused across cold server instances; rotated refresh token survives', async () => {
+  let clock = time, refreshes = 0
+  const {app,database,oauth} = appFixture({refresh:async token => {
+    assert.equal(token,refreshes?'rotated-refresh':'original-refresh')
+    refreshes++;return {access_token:`access-${refreshes}`,refresh_token:'rotated-refresh',expires_in:3600}
+  }},{now:()=>clock})
+  seedGoogleConnection(database,{refresh_token:'original-refresh'})
+  const {cookie} = await login(app)
+  const check = a => a.handle(req('/api/admin/google-health',{cookie}))
+  assert.equal((await check(app)).status,200)
+  assert.equal((await (await check(app)).json()).status,'healthy')
+  const saved=database.tables.get('sapa_google_connection')[0]
+  assert.ok(!saved.encrypted_tokens.includes('rotated-refresh'))
+  const decoded=tokenCipher(env.SAPA_TOKEN_ENCRYPTION_KEY).open(saved.encrypted_tokens,'google-connection')
+  assert.equal(decoded.refresh_token,'rotated-refresh')
+  const cold=createGoogleApplication({env,database,oauth,now:()=>clock})
+  assert.equal((await (await check(cold)).json()).status,'healthy')
+  assert.equal(refreshes,1)
+  clock+=12*3600000
+  const results=await Promise.all([check(cold),check(cold),check(cold)])
+  for(const response of results){const body=await response.text();assert.equal(JSON.parse(body).status,'healthy');assert.ok(!body.includes('access-'));assert.ok(!body.includes('refresh'))}
+  assert.equal(refreshes,2)
+})
+
+test('Sheets 401 discards rejected cached access token and refreshes only once', async () => {
+  let refreshes=0, rejectedCalls=0
+  const {app,database}=appFixture({refresh:async()=>{refreshes++;return {access_token:'recovered-access',expires_in:3600}}},{fetchImpl:async(url,options)=>{
+    if(options.headers.Authorization==='Bearer rejected-access'){rejectedCalls++;return Response.json({error:{}},{status:401})}
+    assert.equal(options.headers.Authorization,'Bearer recovered-access')
+    return fakeSheetsResponse(url)
+  }})
+  seedGoogleConnection(database,{refresh_token:'refresh',access_token:'rejected-access',access_until:time+3600000})
+  const result=await app.sheets.monitoring({date:'2026-11-01'})
+  assert.equal(result.rows.length,2);assert.equal(refreshes,1);assert.equal(rejectedCalls,1)
+})
+
+test('a second Sheets 401 stops recovery; uncertain write timeout is never sent twice', async () => {
+  for(const scenario of ['rejected','write-timeout']){
+    let refreshes=0, calls=0, writes=0
+    const {app,database}=appFixture({refresh:async()=>{refreshes++;return {access_token:'fresh',expires_in:3600}}},{fetchImpl:async(url,options)=>{
+      calls++
+      if(scenario==='rejected')return Response.json({error:{}},{status:401})
+      if(options.method==='POST'){writes++;throw new Error('network timeout')}
+      return fakeSheetsResponse(url)
+    }})
+    seedGoogleConnection(database,{refresh_token:'refresh',access_token:'cached',access_until:time+3600000})
+    if(scenario==='rejected'){
+      await assert.rejects(app.sheets.monitoring({date:'2026-11-01'}),{code:'GOOGLE_AUTH_FAILED'})
+      assert.equal(calls,2);assert.equal(refreshes,1)
+    }else{
+      await assert.rejects(app.sheets.updateOrder({source:'DS',date:'2026-11-01',mode:'daily',sheetRow:2,shipment:'TEST-SHIP',store:'TEST1',expected:{sheetStatus:'Proses'},changes:{sheetStatus:'Done'}},'PIC:PIC TEST'),{status:502})
+      assert.equal(writes,1);assert.equal(refreshes,0)
+      assert.equal(database.tables.get('sapa_sheet_audit')[0].outcome,'uncertain')
+    }
+  }
+})
+
+test('refresh cannot overwrite a newer admin connection even if the timestamp is unchanged', async () => {
+  const database=memoryDatabase()
+  const saved=seedGoogleConnection(database,{refresh_token:'old'})
+  const oauth={refresh:async()=>{
+    Object.assign(saved,{encrypted_tokens:tokenCipher(env.SAPA_TOKEN_ENCRYPTION_KEY).seal({refresh_token:'new',access_token:'admin-access',access_until:time+3600000},'google-connection')})
+    return {access_token:'stale-result',expires_in:3600}
+  }}
+  const app=createGoogleApplication({env,database,oauth,now:()=>time,fetchImpl:async(url,options)=>{assert.equal(options.headers.Authorization,'Bearer admin-access');return fakeSheetsResponse(url)}})
+  assert.equal((await app.sheets.monitoring({date:'2026-11-01'})).rows.length,2)
+  const stored=tokenCipher(env.SAPA_TOKEN_ENCRYPTION_KEY).open(saved.encrypted_tokens,'google-connection')
+  assert.equal(stored.refresh_token,'new');assert.equal(stored.access_token,'admin-access')
+})
+
+test('Google health diagnosis requires admin, separates revoked grants and temporary failure without leaking tokens', async () => {
+  for(const code of ['GOOGLE_RECONNECT_REQUIRED','GOOGLE_TEMPORARY']){
+    const {app,database}=appFixture({refresh:async()=>{throw Object.assign(new Error('Safe recovery message'),{status:code==='GOOGLE_TEMPORARY'?502:401,code})}})
+    seedGoogleConnection(database,{refresh_token:'private-marker'})
+    assert.equal((await app.handle(req('/api/admin/google-health'))).status,401)
+    const {cookie}=await login(app)
+    const response=await app.handle(req('/api/admin/google-health',{cookie}))
+    const text=await response.text(),body=JSON.parse(text)
+    assert.equal(response.status,200);assert.equal(body.code,code)
+    assert.equal(body.status,code==='GOOGLE_TEMPORARY'?'temporary_error':'reconnect_required')
+    assert.ok(!text.includes('private-marker'));assert.ok(!text.includes('encrypted_tokens'))
+  }
+})
+
+test('reconnecting Google preserves shared report design and contacts while invalidating monitoring cache', async () => {
+  const {app,database}=appFixture()
+  database.tables.set('sapa_source_cache',[
+    {cache_key:'settings:followup-design',snapshot:{design:{title:'Saved team design'}}},
+    {cache_key:'contacts:test:tab',snapshot:{contacts:[]}},
+    {cache_key:'monitoring:daily:2026-11-01',snapshot:{rows:[]}},
+  ])
+  const {cookie}=await login(app)
+  const start=await app.handle(req('/api/auth/connect',{cookie}))
+  const state=new URL(start.headers.get('location')).searchParams.get('state')
+  const response=await app.handle(req(`/api/auth/callback?state=${state}&code=test`,{cookie:`${cookie}; ${start.headers.get('set-cookie').split(';')[0]}`}))
+  assert.equal(response.headers.get('location'),`${env.APP_ORIGIN}/admin`)
+  assert.deepEqual(database.tables.get('sapa_source_cache').map(r=>r.cache_key),['settings:followup-design','contacts:test:tab'])
 })

@@ -32,13 +32,20 @@ export function tokenCipher(secret) {
 // Never accept an email or role supplied by the browser as proof of identity.
 export function createGoogleOAuth({ clientId, clientSecret, redirectUri, fetchImpl = fetch, now = () => Date.now() }) {
   let keys = []; let keysUntil = 0
-  async function json(url, options = {}) {
-    let response
-    try { response = await fetchImpl(url, { ...options, signal: AbortSignal.timeout(20000) }) }
-    catch { throw httpError(502, 'Google belum merespons. Coba lagi setelah koneksi pulih.') }
-    const data = await response.json()
-    if (!response.ok) throw httpError(response.status === 400 || response.status === 401 ? 401 : 502, 'Otorisasi Google gagal. Hubungkan kembali akun Google.')
-    return data
+  async function json(url, options = {}, refresh = false) {
+    for(let attempt=0;attempt<(refresh?2:1);attempt++) {
+      let response, data
+      try { response=await fetchImpl(url,{...options,signal:AbortSignal.timeout(20000)});data=await response.json() }
+      catch { if(refresh && attempt===0)continue;throw Object.assign(httpError(502,'Google belum merespons. Coba Periksa ulang; akun tidak perlu dihubungkan ulang untuk gangguan sementara.'),{code:'GOOGLE_TEMPORARY',retryable:true}) }
+      if(response.ok)return data
+      if(refresh && (response.status===429||response.status>=500) && attempt===0)continue
+      const code=data?.error
+      if(code==='invalid_grant' && !refresh)throw Object.assign(httpError(401,'Kode otorisasi Google kedaluwarsa atau sudah dipakai. Ulangi proses masuk atau Hubungkan Google.'),{code:'GOOGLE_AUTH_CODE_EXPIRED',retryable:false})
+      if(code==='invalid_grant')throw Object.assign(httpError(401,'Izin Google pengelola sudah kedaluwarsa atau dicabut. Super admin perlu Hubungkan ulang Google di /admin. Jika OAuth masih Testing, ubah ke In production agar token baru tidak dibatasi 7 hari.'),{code:'GOOGLE_RECONNECT_REQUIRED',retryable:false})
+      if(['invalid_client','unauthorized_client'].includes(code))throw Object.assign(httpError(503,'Konfigurasi OAuth Google server ditolak. Super admin perlu memeriksa Client ID/Secret; login ulang saja tidak menyelesaikannya.'),{code:'GOOGLE_CLIENT_CONFIG',retryable:false})
+      if(response.status===429||response.status>=500)throw Object.assign(httpError(502,'Layanan Google sedang bermasalah atau dibatasi. Coba Periksa ulang beberapa saat lagi.'),{code:'GOOGLE_TEMPORARY',retryable:true})
+      throw Object.assign(httpError(401,'Otorisasi Google gagal. Super admin perlu menghubungkan ulang akun Google.'),{code:'GOOGLE_AUTH_FAILED',retryable:false})
+    }
   }
   async function verifyIdToken(jwt, nonce) {
     try {
@@ -75,7 +82,7 @@ export function createGoogleOAuth({ clientId, clientSecret, redirectUri, fetchIm
       return { identity: await verifyIdToken(data.id_token, nonce), tokens: data }
     },
     async refresh(refreshToken) {
-      return json('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken, grant_type: 'refresh_token' }) })
+      return json('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken, grant_type: 'refresh_token' }) }, true)
     },
     verifyIdToken,
   }

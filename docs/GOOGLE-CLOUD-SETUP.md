@@ -98,6 +98,21 @@ Proyek sudah memiliki endpoint Node pada folder `api/` serta rewrite `/admin` pa
 
 Di **Vercel → Project → Settings → Environment Variables**, masukkan semua variabel dari langkah 4. Ubah `APP_ORIGIN` menjadi alamat produksi HTTPS, tambahkan redirect URI produksinya di Google, lalu redeploy. Isi secrets langsung di Vercel, bukan di chat. Jangan mengaktifkan preview deployment publik memakai secrets produksi secara sembarang.
 
+## Pemulihan token dan error pagi hari
+
+Access token Google biasanya berumur sekitar satu jam. Server menyimpan token beserta waktu berakhirnya secara terenkripsi dalam koneksi Google di database, sehingga pergantian instance Vercel tidak memicu refresh yang tidak diperlukan. Ketika token mendekati kedaluwarsa, server memperbaruinya memakai refresh token dan mempertahankan refresh token baru jika Google melakukan rotasi. Pembaruan memeriksa versi dan isi koneksi agar tidak menimpa akun yang baru dihubungkan admin.
+
+Jika Sheets menolak access token dengan HTTP 401, server membuang token yang ditolak, memperbaruinya dan mencoba permintaan sekali lagi. Gangguan jaringan, HTTP 429, dan HTTP 5xx pada endpoint token dicoba ulang satu kali dan ditampilkan sebagai gangguan sementara. Penulisan ke Sheets yang mengalami timeout tidak diulang karena hasilnya mungkin sudah diterapkan.
+
+**Jika refresh token benar-benar ditolak (`invalid_grant`):**
+
+1. Buka [Audience proyek TimSAPA](https://console.cloud.google.com/auth/audience?project=timsapa).
+2. Jika aplikasi External masih **Testing**, lengkapi persyaratan **Publish app / In production**, termasuk verifikasi bila Google memintanya. Izin Sheets pada mode Testing menyebabkan refresh token berakhir setelah tujuh hari. Status ini belum bisa ditentukan dari error API saja.
+3. Setelah pengaturan selesai, buka [Admin → Sumber data](https://timsapa.vercel.app/admin?page=source) dan klik **Hubungkan ulang Google** memakai akun pengelola. Token yang telah berakhir tidak bisa diaktifkan kembali oleh aplikasi.
+4. Klik **Periksa otorisasi**, lalu coba ulang Tarik Data. CSV yang sudah diunggah tetap memakai penyimpanan draft yang ada.
+
+Hubungkan ulang hanya membuang cache Monitoring; pengaturan gambar laporan dan cache kontak tetap disimpan. Kode tidak bisa menjamin izin Google tidak pernah dicabut oleh pemilik akun atau kebijakan organisasi. Jangan menjadwalkan login ulang harian sebagai pengganti perbaikan status OAuth.
+
 ## Mengatasi masalah
 
 Hasil pengujian lokal 1 November 2026: data monitoring Google dan profil PIC di browser berhasil dibaca. Permintaan Node langsung ke Supabase masih mengalami `UNABLE_TO_VERIFY_LEAF_SIGNATURE`. Setelah kredensial diisi, koneksi server ini tetap perlu diperbaiki agar OAuth/cache/audit berjalan di laptop; penyiapan OAuth tidak memperbaiki trust certificate. Konfigurasi Vercel memakai environment server sendiri dan perlu diverifikasi sesudah deploy.
