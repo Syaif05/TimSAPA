@@ -354,7 +354,7 @@ test('overnight refresh is coalesced, encrypted and reused across cold server in
   }},{now:()=>clock})
   seedGoogleConnection(database,{refresh_token:'original-refresh'})
   const {cookie} = await login(app)
-  const check = a => a.handle(req('/api/admin/google-health',{cookie}))
+  const check = a => a.handle(req('/api/admin/settings?check=google',{cookie}))
   assert.equal((await check(app)).status,200)
   assert.equal((await (await check(app)).json()).status,'healthy')
   const saved=database.tables.get('sapa_google_connection')[0]
@@ -420,9 +420,9 @@ test('Google health diagnosis requires admin, separates revoked grants and tempo
   for(const code of ['GOOGLE_RECONNECT_REQUIRED','GOOGLE_TEMPORARY']){
     const {app,database}=appFixture({refresh:async()=>{throw Object.assign(new Error('Safe recovery message'),{status:code==='GOOGLE_TEMPORARY'?502:401,code})}})
     seedGoogleConnection(database,{refresh_token:'private-marker'})
-    assert.equal((await app.handle(req('/api/admin/google-health'))).status,401)
+    assert.equal((await app.handle(req('/api/admin/settings?check=google'))).status,401)
     const {cookie}=await login(app)
-    const response=await app.handle(req('/api/admin/google-health',{cookie}))
+    const response=await app.handle(req('/api/admin/settings?check=google',{cookie}))
     const text=await response.text(),body=JSON.parse(text)
     assert.equal(response.status,200);assert.equal(body.code,code)
     assert.equal(body.status,code==='GOOGLE_TEMPORARY'?'temporary_error':'reconnect_required')

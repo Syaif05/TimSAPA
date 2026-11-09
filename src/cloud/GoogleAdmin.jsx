@@ -40,7 +40,7 @@ export function GoogleAdmin() {
   const [page, setPage] = useState(initialPage)
   const checkGoogleHealth = async () => {
     setBusy(true); setError('')
-    try { setGoogleHealth(await sourceRequest('/api/admin/google-health')) }
+    try { setGoogleHealth(await sourceRequest('/api/admin/settings?check=google')) }
     catch (e) { setError(e.message) }
     finally { setBusy(false) }
   }

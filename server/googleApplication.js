@@ -201,7 +201,7 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
           await requireAdmin(request)
           return json(await database('rpc/sapa_activity_summary',{method:'POST',body:activityRange(url,now())}))
         }
-        if(path==='/api/admin/google-health' && request.method==='GET') {
+        if(path==='/api/admin/settings' && request.method==='GET' && url.searchParams.get('check')==='google') {
           await requireAdmin(request)
           try {await accessToken();return json({status:'healthy',checkedAt:new Date(now()).toISOString()})}
           catch(error){return json({status:error.code==='GOOGLE_RECONNECT_REQUIRED'?'reconnect_required':error.code==='GOOGLE_CLIENT_CONFIG'?'configuration_error':'temporary_error',code:error.code||'',message:error.message,checkedAt:new Date(now()).toISOString()})}
