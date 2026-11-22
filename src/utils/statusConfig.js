@@ -125,6 +125,8 @@ export function getStatusBadgeStyles(statusId, statuses = DEFAULT_STATUSES) {
   const colorDef = AVAILABLE_STATUS_COLORS.find((c) => c.id === status.color) || AVAILABLE_STATUS_COLORS[0]
 
   return {
+    id: status.id,
+    color: colorDef.id,
     className: `border px-2.5 py-0.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs ${colorDef.lightBg} ${colorDef.darkBg}`,
     dotClass: colorDef.dot,
     label: status.label,

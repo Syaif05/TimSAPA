@@ -510,3 +510,72 @@ button { cursor: pointer; }
 @media(max-width:900px) { .work-card-grid { grid-template-columns:1fr; }.work-results { padding:12px 12px 110px; } }
 @media(max-width:420px) { .work-progress-floating small { display:none; }.work-progress-floating > div { width:160px; } }
 @media(prefers-reduced-motion:reduce) { .work-result-card,.work-copy-text { transition:none; }.work-badge.is-broken { animation:none; } }
+
+/* Chat status remains visible on both queue cards and the detail panel. */
+[data-chat-color] { --chat-color:#b45309; }
+[data-chat-color="blue"] { --chat-color:#2563eb; }
+[data-chat-color="emerald"] { --chat-color:#15803d; }
+[data-chat-color="teal"] { --chat-color:#0f766e; }
+[data-chat-color="purple"] { --chat-color:#9333ea; }
+[data-chat-color="rose"] { --chat-color:#be123c; }
+[data-chat-color="indigo"] { --chat-color:#4f46e5; }
+[data-chat-color="zinc"] { --chat-color:#52525b; }
+.queue-heading { padding:0 6px 14px; }
+.queue-heading h2 { font-size:17px; font-weight:750; margin-top:4px; letter-spacing:-.35px; }
+.queue-eyebrow { font-size:9px; letter-spacing:1.3px; font-weight:650; color:var(--muted); }
+.queue-total { border:1px solid var(--line); border-radius:9px; padding:6px 9px; font-size:11px; font-weight:650; background:var(--soft); }
+.queue-overview { padding:12px; margin:0 3px 15px; border:1px solid var(--line); background:var(--soft); border-radius:12px; }
+.queue-overview-stats { display:flex; justify-content:space-between; gap:8px; font-size:10px; color:var(--muted); }
+.queue-overview-stats >span { display:flex; align-items:center; gap:5px; }
+.queue-overview-stats strong { font-size:13px; color:var(--ink); font-variant-numeric:tabular-nums; }
+.queue-progress { height:5px; border-radius:99px; background:var(--line); overflow:hidden; margin:9px 0 7px; }
+.queue-progress >span { display:block; height:100%; background:#16a34a; border-radius:inherit; transition:width .3s ease; }
+.queue-overview p { color:var(--muted); font-size:9px; }
+.queue-list { gap:10px; padding:5px 5px 12px; }
+.ac-list-row { align-items:flex-start; gap:9px; padding:14px 10px; border:1px solid var(--line); background:var(--panel); transition:background .2s,border-color .2s,box-shadow .2s; }
+.queue-card-content { display:flex; flex-direction:column; gap:6px; flex:1; min-width:0; text-align:left; }
+.queue-card-name { font-size:12px; line-height:1.5; font-weight:750; overflow-wrap:anywhere; }
+.queue-card-location { color:var(--muted); font-size:10px; line-height:1.5; }
+.queue-card-metrics { display:flex; align-items:center; flex-wrap:wrap; gap:5px 10px; font-size:10px; color:var(--muted); }
+.queue-card-metrics >span { display:inline-flex; align-items:center; gap:4px; }
+.queue-card-footer { display:flex; flex-wrap:wrap; align-items:center; gap:5px 8px; margin-top:2px; }
+.chat-status-badge { display:inline-flex; align-items:center; gap:4px; border:1px solid color-mix(in srgb,var(--chat-color) 25%,transparent); border-radius:6px; padding:4px 6px; background:color-mix(in srgb,var(--chat-color) 8%,var(--panel)); color:var(--chat-color); font-size:10px; font-weight:700; line-height:1.4; }
+.queue-critical { display:inline-flex; align-items:center; gap:3px; font-size:9px; font-weight:650; color:#be123c; }
+.queue-chevron { flex-shrink:0; margin-top:9px; color:var(--muted); }
+.ac-list-row .ac-avatar { margin-top:2px; width:29px; height:29px; }
+.ac-list-row.is-contacted, .ac-list-row.is-in-progress { background:linear-gradient(120deg,color-mix(in srgb,var(--chat-color) 10%,var(--panel)),var(--panel)); border-color:color-mix(in srgb,var(--chat-color) 38%,var(--line)); }
+.ac-list-row.is-contacted { box-shadow:0 2px 14px color-mix(in srgb,var(--chat-color) 15%,transparent),inset -3px 0 var(--chat-color); }
+.ac-list-row.selected, .dark .ac-list-row.selected { outline:2px solid var(--accent-ink); outline-offset:1px; }
+.ac-list-row.is-contacted.selected, .ac-list-row.is-in-progress.selected { background:linear-gradient(120deg,color-mix(in srgb,var(--chat-color) 17%,var(--panel)),var(--panel)); border-color:var(--chat-color); }
+.ac-list-row.is-contacted .ac-avatar, .chat-panel.is-contacted .detail-avatar { background:var(--chat-color); color:white; box-shadow:0 0 0 4px color-mix(in srgb,var(--chat-color) 12%,transparent); }
+.chat-panel.is-contacted { border-color:color-mix(in srgb,var(--chat-color) 50%,var(--line)); box-shadow:0 0 0 3px color-mix(in srgb,var(--chat-color) 8%,transparent),0 8px 26px color-mix(in srgb,var(--chat-color) 12%,transparent); }
+.chat-panel.is-contacted .chat-heading, .chat-panel.is-in-progress .chat-heading { background:linear-gradient(100deg,color-mix(in srgb,var(--chat-color) 9%,var(--panel)),var(--panel)); }
+.chat-status-banner { display:flex; align-items:center; gap:10px; margin:0 20px 15px; padding:12px 14px; background:color-mix(in srgb,var(--chat-color) 8%,var(--panel)); color:var(--chat-color); border:1px solid color-mix(in srgb,var(--chat-color) 25%,var(--line)); border-radius:11px; }
+.chat-status-banner >svg { flex-shrink:0; }
+.chat-status-banner >div { display:grid; gap:3px; }
+.chat-status-banner strong { font-size:13px; font-weight:750; }
+.chat-status-banner span { font-size:10px; line-height:1.6; }
+.chat-status-pic { margin-left:auto; white-space:nowrap; font-weight:650; }
+.ac-list-row:focus-visible { outline:3px solid var(--accent-ink); outline-offset:1px; }
+.dark [data-chat-color="emerald"] { --chat-color:#4ade80; }
+.dark [data-chat-color="teal"] { --chat-color:#2dd4bf; }
+.dark [data-chat-color="blue"] { --chat-color:#60a5fa; }
+.dark [data-chat-color="rose"] { --chat-color:#fb7185; }
+.dark [data-chat-color="purple"] { --chat-color:#c084fc; }
+.dark [data-chat-color="indigo"] { --chat-color:#a5b4fc; }
+.dark [data-chat-color="amber"] { --chat-color:#fbbf24; }
+.dark [data-chat-color="zinc"] { --chat-color:#a1a1aa; }
+.dark .queue-critical { color:#fb7185; }
+.dark .ac-list-row.is-contacted .ac-avatar, .dark .chat-panel.is-contacted .detail-avatar { color:#102a1c; }
+@media(min-width:701px) and (max-width:1100px) { .workspace-split { grid-template-columns:285px minmax(0,1fr); } }
+@media(max-width:700px) {
+  .queue-list .ac-list-row { width:265px; }
+  .chat-status-banner { margin:0 14px 14px; padding:10px; flex-wrap:wrap; }
+  .chat-status-pic { margin-left:31px; }
+}
+@media(prefers-reduced-motion:reduce) { .ac-list-row, .queue-progress >span { transition:none; } }
+@media(max-width:700px) {
+  .monitoring-compact-bar { flex-wrap:wrap; gap:8px; }
+  .monitoring-compact-bar .monitoring-tools { flex-wrap:wrap; min-width:0; }
+  .monitoring-status-controls { margin-left:auto; }
+}

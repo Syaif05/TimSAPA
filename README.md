@@ -10,9 +10,9 @@ Halaman utama: `http://localhost:5173/`. Halaman pengelola: `/admin`, terpisah d
 
 ## Perilaku aplikasi
 
-- Monitoring menyediakan pilihan **Antrean** dan **Spreadsheet**. Mode Spreadsheet memiliki tombol **Atur kolom** untuk menampilkan atau menyembunyikan kolom A–V; pengaturan awal menyembunyikan K–M dan pilihan disimpan per PIC di browser. Urutan awal adalah Kode Toko → Nama AC → PIC (A–Z). Setiap kolom yang tampil memiliki filter nilai dan urutan, termasuk untuk menyembunyikan DONE. Tabel memiliki header tetap, navigasi sel, salin TSV sesuai kolom tampil, pagination, dan akses pesan/lampiran untuk pesanan aktif.
+- Monitoring menyediakan **Antrean** (daftar/detail atau kartu) dan **Hasil Kerja**. Tab Spreadsheet dihapus; preferensi lama untuk tab tersebut otomatis kembali ke Antrean. Kartu AC menampilkan cabang, regional, jumlah pesanan/toko, serta label status chat. Status yang dihitung selesai memakai aura dan warna sesuai pengaturan status pada daftar dan detail; ringkasan progres mengikuti AC yang sedang ditampilkan.
 - PIC memilih nama tanpa akun pribadi. Preferensi template, tema, dan desain lampiran disimpan bersama per PIC di Supabase.
-- REG dan DS mengikuti tab tanggal Asia/Jakarta. Antrean mendahulukan DS. Pesanan DONE dapat dilihat melalui filter mode Spreadsheet, tetapi tidak masuk antrean, pesan, atau gambar.
+- REG dan DS mengikuti tab tanggal Asia/Jakarta. Antrean mendahulukan DS. Pesanan DONE tetap masuk rekap Hasil Kerja, tetapi tidak masuk antrean, pesan, atau gambar. Status chat lokal terpisah dari status pesanan Google Sheets.
 - Akun Google pengelola dapat dihubungkan oleh super admin untuk membaca sumber melalui Sheets API. Status dan Kendala dapat diubah sesuai pengaturan admin.
 - Login admin menggunakan Google OIDC, PKCE, state sekali pakai, nonce, cookie HttpOnly, dan daftar email tepercaya di server.
 - Pilihan PIC bukan autentikasi pribadi. Ketika edit PIC aktif, pengguna situs dapat memilih PIC terdaftar dan mengubah kolom yang diizinkan. Audit mencatat PIC yang dipilih.

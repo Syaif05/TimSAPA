@@ -2,7 +2,7 @@ import { recordActivity } from '../utils/activityTracker'
 import { orderSetKey, reconcileOrderDraft } from '../utils/orderState'
 import { OrderSheetEditor } from '../cloud/OrderSheetEditor'
 import React, { useState, useRef, useEffect } from 'react'
-import { MessageSquare, Copy, Check, Phone, Maximize2, RotateCcw, ExternalLink, ChevronLeft, ChevronRight, Palette } from 'lucide-react'
+import { MessageSquare, Copy, Check, CheckCircle2, Clock3, Phone, Maximize2, RotateCcw, ExternalLink, ChevronLeft, ChevronRight, Palette } from 'lucide-react'
 import { InfoButton } from './InfoButton'
 import { AcTableRender } from './AcTableRender'
 import { copyTableImageToClipboard, generateTableDataUrl } from '../utils/imageGenerator'
@@ -119,7 +119,7 @@ export function AcDetailPanel({
 
   const statusStyles = getStatusBadgeStyles(acGroup.status, statuses)
   return (
-    <section className={`chat-panel ${acGroup.source ? `source-${acGroup.source.toLowerCase()}` : ''}`} data-source={acGroup.source || undefined} aria-label={`Detail ${acGroup.acName}`}>
+    <section className={`chat-panel ${statusStyles.countsAsCompleted ? 'is-contacted' : statusStyles.id !== 'belum_dikerjakan' ? 'is-in-progress' : ''} ${acGroup.source ? `source-${acGroup.source.toLowerCase()}` : ''}`} data-source={acGroup.source || undefined} data-chat-color={statusStyles.color} aria-label={`Detail ${acGroup.acName}`}>
       <div className="chat-heading">
         <div className="flex items-center gap-3 min-w-0">
           <span className="detail-avatar">{acGroup.acName.split(/\s+/).slice(0, 2).map(n => n[0]).join('')}</span>
@@ -130,6 +130,11 @@ export function AcDetailPanel({
           <button className="icon-button" onClick={onPrevAc} disabled={!hasPrev} title="AC sebelumnya" aria-label="AC sebelumnya"><ChevronLeft size={16}/></button>
           <button className="icon-button" onClick={onNextAc} disabled={!hasNext} title="AC berikutnya" aria-label="AC berikutnya"><ChevronRight size={16}/></button>
         </div>}
+      </div>
+      <div className="chat-status-banner" role="status">
+        {statusStyles.countsAsCompleted ? <CheckCircle2 size={21}/> : <Clock3 size={21}/>}
+        <div><strong>{statusStyles.shortLabel}</strong><span>{statusStyles.countsAsCompleted ? 'Ditandai sudah ditindaklanjuti · status chat lokal' : statusStyles.id === 'belum_dikerjakan' ? 'Siapkan draf dan hubungi AC melalui WhatsApp.' : 'Pantau respons AC dan lanjutkan follow up sesuai kebutuhan.'}</span></div>
+        <span className="chat-status-pic">PIC {acGroup.pic || '—'}</span>
       </div>
       <div className="chat-meta">
         <select className="clean-select status-select" aria-label="Status chat lokal" title="Status chat lokal; tidak mengubah Google Sheets" value={acGroup.status || 'belum_dikerjakan'} onChange={e => onStatusChange(acGroup.acKey, e.target.value)}>{statuses.map(status => <option key={status.id} value={status.id}>{status.shortLabel || status.label}</option>)}</select>
