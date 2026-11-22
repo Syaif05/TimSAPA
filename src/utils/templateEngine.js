@@ -67,66 +67,88 @@ Mohon bantuan percepatan penyelesaian. Rincian tabel terlampir di bawah. Terima 
   },
 }
 
-/**
- * Format teks ringkasan toko dan shipment
- */
-function buildStoreShipmentSummary(rows) {
-  // Kelompokkan per toko
-  const storeMap = new Map()
-  rows.forEach((r) => {
-    const key = `${r.kodeToko} - ${r.namaToko}`
-    if (!storeMap.has(key)) {
-      storeMap.set(key, [])
-    }
-    storeMap.get(key).push(r)
-  })
+export { MAX_TEMPLATES, MAX_TEMPLATE_CONTENT, TEMPLATE_PERIODS, templateLibraryError } from '../../supabase/functions/pic-profiles/templateRules.js'
 
-  const lines = []
-  storeMap.forEach((shipments, storeName) => {
-    lines.push(`📍 *${storeName}* (${shipments.length} pesanan):`)
-    shipments.forEach((s) => {
-      lines.push(`   • ${s.shipment} | ${s.namaKonsumen || 'Konsumen'} | ${s.sla}`)
-    })
-  })
+// One catalogue feeds both the variable picker and unknown-variable diagnostics.
+export const TEMPLATE_VARIABLES = [
+  ['salam','Waktu','Sapaan lengkap, misalnya Selamat pagi'], ['waktu','Waktu','Pagi / Siang / Sore / Malam'],
+  ['jam_sekarang','Waktu','Jam sekarang WIB (HH.mm)'], ['tanggal','Waktu','Tanggal lengkap hari ini WIB'],
+  ['tanggal_singkat','Waktu','Tanggal hari ini (DD/MM/YYYY)'], ['hari','Waktu','Nama hari WIB'],
+  ['tanggal_data','Waktu','Tanggal sumber Monitoring'], ['jam','Waktu','Jam monitoring'], ['daftar_jam','Waktu','Semua jam monitoring pada pesanan aktif'],
+  ['nama_ac','Identitas','Nama AC'], ['cug_ac','Identitas','Nomor WhatsApp AC'], ['pic','Identitas','PIC pada pesanan aktif'],
+  ['cabang','Identitas','Cabang / DC pada pesanan aktif'], ['region','Identitas','Regional pada pesanan aktif'],
+  ['nama_am','Identitas','Nama AM pada data aktif'], ['cug_am','Identitas','Nomor AM pada data aktif'], ['cug_toko','Identitas','Nomor toko pada data aktif'],
+  ['total_toko','Toko','Jumlah toko unik'], ['daftar_toko','Toko','Daftar kode dan nama toko bernomor'],
+  ['daftar_nama_toko','Toko','Nama toko saja, satu per baris'], ['nama_toko_koma','Toko','Nama toko dipisah koma'],
+  ['daftar_kode_toko','Toko','Kode toko saja, satu per baris'], ['kode_toko_koma','Toko','Kode toko dipisah koma'],
+  ['rincian_toko','Toko','Jumlah pesanan per toko'], ['daftar_toko_dan_shipment','Toko','Rincian toko, shipment, konsumen dan SLA'],
+  ['total_shipment','Pesanan','Jumlah pesanan aktif'], ['daftar_shipment','Pesanan','Shipment dan SLA per baris'],
+  ['shipment_koma','Pesanan','Nomor shipment unik dipisah koma'], ['total_ds','Pesanan','Jumlah pesanan DS'], ['total_reg','Pesanan','Jumlah pesanan REG'],
+  ['shipment_ds','Pesanan','Shipment DS dipisah koma'], ['shipment_reg','Pesanan','Shipment REG dipisah koma'],
+  ['sumber','Pesanan','Sumber aktif: DS / REG / DS + REG'], ['daftar_konsumen','Pesanan','Nama konsumen unik'],
+  ['status_pesanan','Pesanan','Status pesanan dari spreadsheet'], ['rincian_sla','Pesanan','Jumlah pesanan per SLA'],
+  ['daftar_kendala','Follow up','Catatan kendala unik'], ['daftar_grouping','Follow up','Kategori grouping unik'],
+  ['daftar_pejabat','Follow up','Nama pejabat toko unik'], ['kondisi_motor','Follow up','Kondisi motor pada data aktif'],
+  ['personil_per_toko','Follow up','Jumlah personil per toko (tidak dijumlah berulang)'],
+].map(([key, group, description]) => ({key, tag:`{${key}}`, group, description}))
 
-  return lines.join('\n')
+export function messagePeriodAt(date = new Date()) {
+  const hour = Number(new Intl.DateTimeFormat('en-GB', {timeZone:'Asia/Jakarta',hour:'2-digit',hourCycle:'h23'}).format(date))
+  return hour >= 5 && hour < 11 ? 'Pagi' : hour >= 11 && hour < 15 ? 'Siang' : hour >= 15 && hour < 18 ? 'Sore' : 'Malam'
 }
-
-/**
- * Render template dengan variabel dinamis
- * @param {string} templateString
- * @param {Object} acGroup
- * @returns {string}
- */
-export function renderTemplate(templateString, acGroup) {
-  if (!templateString || !acGroup) return ''
-  acGroup = activeOrderGroup(acGroup)
-  if (!acGroup.rows?.length) return ''
-
-  const storesList = acGroup.storesList || []
-  const daftarTokoFormatted = storesList.map((s, idx) => `${idx + 1}. ${s}`).join('\n')
-
-  const daftarShipmentFormatted = (acGroup.rows || [])
-    .map((r) => `• ${r.shipment} (${r.sla})`)
-    .join('\n')
-
-  const daftarTokoDanShipment = buildStoreShipmentSummary(acGroup.rows || [])
-
-  const slaSummary = Object.entries(acGroup.slaBreakdown || {})
-    .map(([sla, count]) => `${count} pesanan ${sla}`)
-    .join(', ')
-
-  return templateString
-    .replace(/\{nama_ac\}/gi, acGroup.acName || 'Bapak/Ibu AC')
-    .replace(/\{cug_ac\}/gi, acGroup.phone || '-')
-    .replace(/\{cabang\}/gi, acGroup.cabang || '-')
-    .replace(/\{region\}/gi, acGroup.region || '-')
-    .replace(/\{total_shipment\}/gi, String(acGroup.totalShipments || 0))
-    .replace(/\{total_toko\}/gi, String(acGroup.totalStores || 0))
-    .replace(/\{daftar_toko\}/gi, daftarTokoFormatted)
-    .replace(/\{daftar_shipment\}/gi, daftarShipmentFormatted)
-    .replace(/\{daftar_toko_dan_shipment\}/gi, daftarTokoDanShipment)
-    .replace(/\{jam\}/gi, acGroup.jam || '08.00')
-    .replace(/\{pic\}/gi, acGroup.pic || 'PIC SAPA')
-    .replace(/\{rincian_sla\}/gi, slaSummary || '-')
+const unique = values => [...new Set(values.map(value => String(value ?? '').trim()).filter(value => value && value !== '-'))]
+const textList = values => unique(values).map(value => `• ${value}`).join('\n') || '-'
+const commaList = values => unique(values).join(', ') || '-'
+export function templateValues(acGroup, {now = new Date(), period = 'auto', customVariables = {}} = {}) {
+  const group = activeOrderGroup(acGroup)
+  const rows = group?.rows || []
+  const stores = new Map()
+  rows.forEach(row => {
+    const key = row.kodeToko || row.namaToko || 'Tanpa toko'
+    if (!stores.has(key)) stores.set(key, {code:row.kodeToko, name:row.namaToko, rows:[]})
+    stores.get(key).rows.push(row)
+  })
+  const storeList = [...stores.values()]
+  const storeTitle = store => [store.code,store.name].filter(Boolean).join(' - ') || 'Tanpa toko'
+  const sla = new Map()
+  rows.forEach(row => sla.set(row.sla || 'Lainnya', (sla.get(row.sla || 'Lainnya') || 0) + 1))
+  const chosenPeriod = ['Pagi','Siang','Sore','Malam'].includes(period) ? period : messagePeriodAt(now)
+  const format = options => new Intl.DateTimeFormat('id-ID', {timeZone:'Asia/Jakarta',...options}).format(now)
+  const sources = ['DS','REG'].filter(source => rows.some(row => row.source === source))
+  const fromRows = (key, fallback) => commaList(rows.map(row => row[key]).filter(Boolean).concat(rows.some(row=>row[key]) ? [] : [fallback]))
+  // Built-ins win over custom keys; values are substituted literally in a single pass.
+  return {
+    ...customVariables,
+    nama_ac:group?.acName || 'Bapak/Ibu AC', cug_ac:group?.phone || '-',
+    cabang:fromRows('cabang',group?.cabang), region:fromRows('region',group?.region), pic:fromRows('pic',group?.pic || 'PIC SAPA'),
+    nama_am:fromRows('amName'), cug_am:commaList(rows.map(row=>row.resolvedAmPhone || row.noAm)),
+    cug_toko:commaList(rows.map(row=>row.cugToko).concat(group?.cugToko || [])),
+    salam:`Selamat ${chosenPeriod.toLowerCase()}`, waktu:chosenPeriod,
+    jam_sekarang:format({hour:'2-digit',minute:'2-digit',hourCycle:'h23'}), tanggal:format({day:'numeric',month:'long',year:'numeric'}),
+    tanggal_singkat:format({day:'2-digit',month:'2-digit',year:'numeric'}), hari:format({weekday:'long'}),
+    tanggal_data:commaList(rows.map(row=>row.sheetDate)), jam:group?.jam || '-', daftar_jam:textList(rows.map(row=>row.jam)),
+    total_shipment:String(rows.length), total_toko:String(storeList.length),
+    daftar_toko:storeList.map((store,index)=>`${index+1}. ${storeTitle(store)}`).join('\n') || '-',
+    daftar_nama_toko:textList(storeList.map(store=>store.name)), nama_toko_koma:commaList(storeList.map(store=>store.name)),
+    daftar_kode_toko:textList(storeList.map(store=>store.code)), kode_toko_koma:commaList(storeList.map(store=>store.code)),
+    rincian_toko:storeList.map(store=>`• ${storeTitle(store)}: ${store.rows.length} pesanan`).join('\n') || '-',
+    daftar_toko_dan_shipment:storeList.map(store=>`📍 *${storeTitle(store)}* (${store.rows.length} pesanan):\n${store.rows.map(row=>`   • ${row.shipment || '-'} | ${row.namaKonsumen || 'Konsumen'} | ${row.sla || '-'}`).join('\n')}`).join('\n') || '-',
+    daftar_shipment:rows.map(row=>`• ${row.shipment || '-'} (${row.sla || '-'})`).join('\n') || '-', shipment_koma:commaList(rows.map(row=>row.shipment)),
+    total_ds:String(rows.filter(row=>row.source==='DS').length), total_reg:String(rows.filter(row=>row.source==='REG').length),
+    shipment_ds:commaList(rows.filter(row=>row.source==='DS').map(row=>row.shipment)), shipment_reg:commaList(rows.filter(row=>row.source==='REG').map(row=>row.shipment)),
+    sumber:sources.join(' + ') || '-', daftar_konsumen:textList(rows.map(row=>row.namaKonsumen)), status_pesanan:commaList(rows.map(row=>row.sheetStatus)),
+    rincian_sla:[...sla].map(([label,count])=>`${count} pesanan ${label}`).join(', ') || '-',
+    daftar_kendala:textList(rows.map(row=>row.kendala)), daftar_grouping:textList(rows.map(row=>row.grouping)), daftar_pejabat:textList(rows.map(row=>row.namaPejabat)),
+    kondisi_motor:commaList(rows.map(row=>row.kondisiMotor)),
+    personil_per_toko:storeList.filter(store=>unique(store.rows.map(row=>row.jumlahPersonil)).length).map(store=>`• ${storeTitle(store)}: ${commaList(store.rows.map(row=>row.jumlahPersonil))} personil`).join('\n') || '-',
+  }
+}
+export function unknownTemplateVariables(content, customVariables = {}) {
+  const known = new Set([...TEMPLATE_VARIABLES.map(v=>v.key),...Object.keys(customVariables)])
+  return unique([...String(content || '').matchAll(/\{([a-z][a-z0-9_]*)\}/gi)].map(match=>match[1].toLowerCase())).filter(key=>!known.has(key))
+}
+export function renderTemplate(templateString, acGroup, options = {}) {
+  if (!templateString || !acGroup || !activeOrderGroup(acGroup).rows?.length) return ''
+  const values = templateValues(acGroup, options)
+  return String(templateString).replace(/\{([a-z][a-z0-9_]*)\}/gi, (match,key) => Object.hasOwn(values,key.toLowerCase()) ? String(values[key.toLowerCase()]) : match)
 }

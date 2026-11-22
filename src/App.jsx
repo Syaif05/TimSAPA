@@ -20,7 +20,7 @@ const TemplateSettings = lazy(() => import('./components/TemplateSettings').then
 const SettingsView = lazy(() => import('./components/SettingsView').then(m => ({ default: m.SettingsView })))
 import { Toast } from './components/Toast'
 import { matchSapaWithContacts, groupRowsByAc } from './utils/matcher'
-import { DEFAULT_TEMPLATES } from './utils/templateEngine'
+import { DEFAULT_TEMPLATES, templateLibraryError } from './utils/templateEngine'
 import { DEFAULT_TABLE_SETTINGS } from './utils/tableSettings'
 import { ProfileGate } from './profiles/ProfileGate'
 import { usePicProfile, usePicSetting } from './profiles/ProfileContext'
@@ -190,6 +190,8 @@ function WorkspaceApp() {
 
   // Shared PIC settings are saved with revision checks.
   const handleSaveTemplates = async (newTemplates, selectedKey) => {
+    const issue = templateLibraryError(newTemplates)
+    if (issue) throw new Error(issue)
     setTemplates(newTemplates)
     if (selectedKey) setActiveTemplateKey(selectedKey)
     await profile.flush()
@@ -309,7 +311,6 @@ function WorkspaceApp() {
     }
   }, [activeTab, storage, podDate])
 
-  const activeTemplate = templates[activeTemplateKey] || DEFAULT_TEMPLATES.template_1
 
   return (
     <div className={`app-shell ${activeTab === 'workspace' ? 'is-monitoring' : ''}`}>
@@ -343,7 +344,6 @@ function WorkspaceApp() {
             sheetPreferences={sheetPreferences}
             onSheetPreferencesChange={setSheetPreferences}
             contactsConnection={contactsConnection}
-            activeTemplate={activeTemplate}
             activeTemplateKey={activeTemplateKey}
             onSelectTemplateKey={handleSelectTemplateKey}
             templates={templates}
@@ -357,6 +357,7 @@ function WorkspaceApp() {
             setIsPasteModalOpen={setIsPasteModalOpen}
             tableSettings={tableSettings}
             onNavigateToSettings={() => { setSettingsTab('image'); setActiveTab('settings') }}
+            onNavigateToTemplates={() => setActiveTab('templates')}
             selectedDate={selectedDate}
             onSelectDate={handleSelectDate}
             onResetDayData={handleResetDayData}
@@ -381,7 +382,6 @@ function WorkspaceApp() {
           <TemplateSettings key={`templates-${profile.formResetKey}`}
             templates={templates}
             activeTemplateKey={activeTemplateKey}
-            onSelectActiveTemplate={handleSelectTemplateKey}
             onSaveTemplates={handleSaveTemplates}
             showToast={showToast}
           />

@@ -1,18 +1,24 @@
 import { recordActivity } from '../utils/activityTracker'
 import { orderSetKey, reconcileOrderDraft } from '../utils/orderState'
 import { OrderSheetEditor } from '../cloud/OrderSheetEditor'
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { MessageSquare, Copy, Check, CheckCircle2, Clock3, Phone, Maximize2, RotateCcw, ExternalLink, ChevronLeft, ChevronRight, Palette } from 'lucide-react'
 import { InfoButton } from './InfoButton'
 import { AcTableRender } from './AcTableRender'
 import { copyTableImageToClipboard, generateTableDataUrl } from '../utils/imageGenerator'
 import { formatPhoneDisplay, isValidIndonesianPhone } from '../utils/phoneUtils'
 import { useWhatsAppChat } from '../hooks/useWhatsAppChat'
+import { renderTemplate } from '../utils/templateEngine'
 import { getStatusBadgeStyles, DEFAULT_STATUSES } from '../utils/statusConfig'
 
 export function AcDetailPanel({
   acGroup,
   renderedMessage,
+  templates,
+  activeTemplateKey,
+  onSelectTemplateKey,
+  onManageTemplates,
+  templateNow,
   statuses = DEFAULT_STATUSES,
   onStatusChange,
   onPhoneChange,
@@ -29,24 +35,29 @@ export function AcDetailPanel({
   tableSettings,
   onNavigateToSettings,
 }) {
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState(() => templates?.[activeTemplateKey] ? activeTemplateKey : Object.keys(templates || {})[0])
+  const resolvedTemplateKey = templates?.[selectedTemplateKey] ? selectedTemplateKey : templates?.[activeTemplateKey] ? activeTemplateKey : Object.keys(templates || {})[0]
+  const selectedTemplate = templates?.[resolvedTemplateKey]
+  const templateText = useMemo(() => selectedTemplate ? renderTemplate(selectedTemplate.content, acGroup, {now:templateNow,period:selectedTemplate.period,customVariables:selectedTemplate.customVariables}) : renderedMessage, [selectedTemplate, acGroup, templateNow, renderedMessage])
   const [phone, setPhone] = useState(acGroup?.phone || '')
-  const [message, setMessage] = useState(renderedMessage || '')
+  const [message, setMessage] = useState(templateText || '')
+  const [pendingTemplateKey, setPendingTemplateKey] = useState(null)
   const [isCopiedImage, setIsCopiedImage] = useState(false)
   const [isCopiedText, setIsCopiedText] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
 
   const tableRef = useRef(null)
 
-  const previousTemplate = useRef(renderedMessage)
+  const previousTemplate = useRef(templateText)
   const ordersKey = orderSetKey(acGroup?.rows)
   const previousOrders = useRef(ordersKey)
   useEffect(() => {
     const previous = previousTemplate.current
     const previousOrderKey = previousOrders.current
-    setMessage(current => reconcileOrderDraft({ currentMessage: current, previousMessage: previous, nextMessage: renderedMessage, previousOrders: previousOrderKey, nextOrders: ordersKey }))
+    setMessage(current => reconcileOrderDraft({ currentMessage: current, previousMessage: previous, nextMessage: templateText, previousOrders: previousOrderKey, nextOrders: ordersKey }))
     previousOrders.current = ordersKey
-    previousTemplate.current = renderedMessage
-  }, [renderedMessage, ordersKey])
+    previousTemplate.current = templateText
+  }, [templateText, ordersKey])
 
   useEffect(() => {
     setPhone(acGroup?.phone || '')
@@ -117,6 +128,18 @@ export function AcDetailPanel({
     }
   }
 
+  const applyTemplate = key => {
+    const next = templates[key]
+    if (!next) return
+    const text = renderTemplate(next.content,acGroup,{now:templateNow,period:next.period,customVariables:next.customVariables})
+    setSelectedTemplateKey(key);setMessage(text);previousTemplate.current=text
+    onSelectTemplateKey?.(key);setPendingTemplateKey(null)
+  }
+  const chooseTemplate = key => {
+    if(key === resolvedTemplateKey)return
+    if(message !== templateText){setPendingTemplateKey(key);return}
+    applyTemplate(key)
+  }
   const statusStyles = getStatusBadgeStyles(acGroup.status, statuses)
   return (
     <section className={`chat-panel ${statusStyles.countsAsCompleted ? 'is-contacted' : statusStyles.id !== 'belum_dikerjakan' ? 'is-in-progress' : ''} ${acGroup.source ? `source-${acGroup.source.toLowerCase()}` : ''}`} data-source={acGroup.source || undefined} data-chat-color={statusStyles.color} aria-label={`Detail ${acGroup.acName}`}>
@@ -149,8 +172,14 @@ export function AcDetailPanel({
           {isValidPhone ? <Check size={15} className="text-emerald-600"/> : <span className="text-[11px] text-rose-500 whitespace-nowrap">{phone ? 'Tidak valid' : 'Isi nomor'}</span>}
         </div>
         {!contactsReady && isValidPhone && <p className="text-[11px] text-amber-600">Kontak belum tersinkron. Periksa nomor sebelum membuka chat.</p>}
+        {selectedTemplate && <div className="template-quick-picker">
+          <div className="template-quick-heading"><label htmlFor={`quick-template-${acGroup.acKey}`}><MessageSquare size={14}/>Template untuk AC ini</label>{onManageTemplates && <button className="template-manage-link" onClick={onManageTemplates}>Kelola {Object.keys(templates).length}/20</button>}</div>
+          <select id={`quick-template-${acGroup.acKey}`} aria-label="Pilih template pesan untuk AC" value={resolvedTemplateKey} onChange={e=>chooseTemplate(e.target.value)}>{Object.entries(templates).map(([key,tpl])=><option key={key} value={key}>{tpl.name}</option>)}</select>
+          {selectedTemplate.description && <p>{selectedTemplate.description}</p>}
+        </div>}
+        {pendingTemplateKey && <div className="template-warning" role="alert"><strong>Ganti draf dengan template lain?</strong><p>Draf AC ini sudah Anda edit. Memilih Ganti template akan menggantikan isi draf.</p><div className="template-confirm-actions"><button className="secondary-button" onClick={()=>setPendingTemplateKey(null)}>Batal</button><button className="primary-button" onClick={()=>applyTemplate(pendingTemplateKey)}>Ganti template</button></div></div>}
         <div>
-          <div className="field-heading"><label htmlFor={`message-${acGroup.acKey}`}>Draf pesan</label><div className="flex items-center gap-1"><button className="icon-button" title="Reset pesan" aria-label="Reset pesan" onClick={() => setMessage(renderedMessage)}><RotateCcw size={14}/></button><button className="icon-button" title="Salin teks" aria-label="Salin teks" onClick={handleCopyText}>{isCopiedText ? <Check size={14}/> : <Copy size={14}/>}</button></div></div>
+          <div className="field-heading"><label htmlFor={`message-${acGroup.acKey}`}>Draf pesan</label><div className="flex items-center gap-1"><button className="icon-button" title="Reset pesan" aria-label="Reset pesan" onClick={() => setMessage(templateText)}><RotateCcw size={14}/></button><button className="icon-button" title="Salin teks" aria-label="Salin teks" onClick={handleCopyText}>{isCopiedText ? <Check size={14}/> : <Copy size={14}/>}</button></div></div>
           <textarea id={`message-${acGroup.acKey}`} className="message-editor" rows={7} value={message} onChange={e => setMessage(e.target.value)}/>
         </div>
         <div className="min-w-0">

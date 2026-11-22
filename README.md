@@ -47,3 +47,5 @@ Klik ikon ekstensi **SAPA • Gunakan Tab WhatsApp** untuk melihat status tab SA
 `npm test` menjalankan pengujian parser, status DONE, rekap PIC, preferensi, OAuth/admin, API, dan penggunaan ulang tab WhatsApp. `npm run build` menghasilkan frontend dan tutorial. OAuth Google asli tetap memerlukan konfigurasi serta persetujuan pemilik akun.
 
 Data contoh di source bersifat fiktif. Data operasional dibaca dari sumber yang dikonfigurasi pada server, bukan disimpan dalam Git.
+
+- **Template pesan** mendukung 1–20 template per PIC, tambah/duplikat/hapus, pencarian, 41 variabel otomatis, serta 10 variabel khusus per template. Pemilih cepat ada di atas draf AC. Panduan: [Template pesan](docs/TEMPLATE-PESAN.md).

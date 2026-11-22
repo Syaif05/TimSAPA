@@ -1,3 +1,4 @@
+import { validTemplateKey, templateLibraryError } from './templateRules.js'
 const KEYS = new Set(['templates', 'activeTemplateKey', 'tableSettings', 'statuses', 'darkMode', 'podTemplate', 'podDelay', 'podUseSameTab', 'podSoundEnabled'])
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'apikey, content-type', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS', 'Cache-Control': 'no-store', 'Content-Type': 'application/json' }
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: CORS })
@@ -7,9 +8,9 @@ export function validSetting(key, value) {
   if (['darkMode', 'podUseSameTab', 'podSoundEnabled'].includes(key)) return typeof value === 'boolean'
   if (key === 'podDelay') return Number.isFinite(value) && value >= 2 && value <= 300
   if (key === 'podTemplate') return typeof value === 'string' && value.length <= 20000
-  if (key === 'activeTemplateKey') return /^template_[1-4]$/.test(value)
+  if (key === 'activeTemplateKey') return validTemplateKey(value)
   if (key === 'statuses') return Array.isArray(value) && value.length > 0 && value.length <= 40 && value.every(s => s && /^[a-zA-Z0-9_-]{1,80}$/.test(s.id) && typeof s.label === 'string' && typeof s.shortLabel === 'string' && typeof s.countsAsCompleted === 'boolean')
-  if (key === 'templates') return typeof value === 'object' && !Array.isArray(value) && ['template_1', 'template_2', 'template_3', 'template_4'].every(k => value[k] && typeof value[k].name === 'string' && typeof value[k].content === 'string' && value[k].content.length <= 20000)
+  if (key === 'templates') return !templateLibraryError(value)
   if (key === 'tableSettings') {
     if (typeof value !== 'object' || Array.isArray(value)) return false
     if (!['columns', 'colors', 'sla', 'typography'].every(k => value[k] && typeof value[k] === 'object' && !Array.isArray(value[k]))) return false

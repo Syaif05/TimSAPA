@@ -13,7 +13,6 @@ const ImagePreviewModal = lazy(() => import('./ImagePreviewModal').then(m => ({ 
 import { HasilKerjaView } from './HasilKerjaView'
 import { MonitoringTools } from './MonitoringTools'
 import { SheetsConnection } from './SheetsConnection'
-import { renderTemplate } from '../utils/templateEngine'
 import { SAMPLE_SAPA_TSV } from '../utils/sampleSapaData'
 import { parseSapaRawText } from '../utils/sapaParser'
 import {
@@ -32,7 +31,6 @@ export function MonitoringWorkspace({
   rawRows = [],
   sheetRows = [],
   contactsConnection,
-  activeTemplate,
   activeTemplateKey,
   onSelectTemplateKey,
   templates,
@@ -46,6 +44,7 @@ export function MonitoringWorkspace({
   setIsPasteModalOpen: externalSetPasteOpen,
   tableSettings,
   onNavigateToSettings,
+  onNavigateToTemplates,
   selectedDate,
   onSelectDate,
   onResetDayData,
@@ -59,6 +58,8 @@ export function MonitoringWorkspace({
   const [viewMode, setViewMode] = useState(() => { try { const saved = storage.getItem('sapa_monitoring_view'); return ['split','grid','work'].includes(saved) ? saved : 'split' } catch { return 'split' } })
   useEffect(() => { try { storage.setItem('sapa_monitoring_view', viewMode) } catch {} }, [viewMode, storage])
   const [selectedAcKey, setSelectedAcKey] = useState(null)
+  const [templateNow, setTemplateNow] = useState(() => new Date())
+  useEffect(() => { const timer = setInterval(() => setTemplateNow(new Date()), 60000); return () => clearInterval(timer) }, [])
 
   const todayDate = getTodayDateString()
   const yesterdayDate = getYesterdayDateString()
@@ -197,7 +198,6 @@ export function MonitoringWorkspace({
             </div>
           </div>
           <div className="flex items-center gap-1 min-w-0">
-            <select className="clean-select template-select" aria-label="Template pesan" value={activeTemplateKey} onChange={e => onSelectTemplateKey(e.target.value)}>{Object.entries(templates).map(([key, t], i) => <option value={key} key={key}>{t.name.replace(/^Template \d+:?\s*/, '') || `Template ${i + 1}`}</option>)}</select>
             <button className="icon-button" aria-label="Pengaturan desain" title="Pengaturan desain" onClick={onNavigateToSettings}><Palette size={16}/></button>
             <span className="toolbar-divider" />
             {['split','grid'].includes(viewMode) && <button className={`icon-button ${viewMode === 'grid' ? 'is-active' : ''}`} aria-pressed={viewMode === 'grid'} aria-label="Tampilan kartu" title={viewMode === 'grid' ? 'Kembali ke daftar antrean' : 'Tampilan kartu'} onClick={() => setViewMode(viewMode === 'grid' ? 'split' : 'grid')}><LayoutGrid size={16}/></button>}
@@ -232,9 +232,9 @@ export function MonitoringWorkspace({
               </div>
               <div className="queue-list">{filteredAcGroups.map((group) => <AcListItem key={group.acKey} acGroup={group} isSelected={currentAc?.acKey === group.acKey} statuses={statuses} onClick={() => setSelectedAcKey(group.acKey)}/>)}</div>
             </section>
-            <div className="detail-wrapper">{currentAc && <AcDetailPanel key={`${currentAc.acKey}:${orderSetKey(currentAc.rows)}`} acGroup={currentAc} contactsReady={contactsConnection?.ready ?? true} renderedMessage={renderTemplate(activeTemplate.content, currentAc)} statuses={statuses} onStatusChange={onStatusChange} onPhoneChange={onPhoneChange} onPreviewImage={(url, name) => setPreviewModalData({isOpen: true, dataUrl: url, acName: name})} showToast={showToast} onPrevAc={() => setSelectedAcKey(filteredAcGroups[Math.max(0, visibleAcIndex - 1)]?.acKey)} onNextAc={() => setSelectedAcKey(filteredAcGroups[Math.min(filteredAcGroups.length - 1, visibleAcIndex + 1)]?.acKey)} hasPrev={visibleAcIndex > 0} hasNext={visibleAcIndex < filteredAcGroups.length - 1} currentIndex={visibleAcIndex} totalCount={filteredAcGroups.length} tableSettings={tableSettings} onNavigateToSettings={onNavigateToSettings}/>}</div>
+            <div className="detail-wrapper">{currentAc && <AcDetailPanel key={`${currentAc.acKey}:${orderSetKey(currentAc.rows)}`} acGroup={currentAc} contactsReady={contactsConnection?.ready ?? true} templates={templates} activeTemplateKey={activeTemplateKey} onSelectTemplateKey={onSelectTemplateKey} onManageTemplates={onNavigateToTemplates} templateNow={templateNow} statuses={statuses} onStatusChange={onStatusChange} onPhoneChange={onPhoneChange} onPreviewImage={(url, name) => setPreviewModalData({isOpen: true, dataUrl: url, acName: name})} showToast={showToast} onPrevAc={() => setSelectedAcKey(filteredAcGroups[Math.max(0, visibleAcIndex - 1)]?.acKey)} onNextAc={() => setSelectedAcKey(filteredAcGroups[Math.min(filteredAcGroups.length - 1, visibleAcIndex + 1)]?.acKey)} hasPrev={visibleAcIndex > 0} hasNext={visibleAcIndex < filteredAcGroups.length - 1} currentIndex={visibleAcIndex} totalCount={filteredAcGroups.length} tableSettings={tableSettings} onNavigateToSettings={onNavigateToSettings}/>}</div>
           </div>
-        ) : <div className="workspace-grid">{filteredAcGroups.map(group => <AcCard key={`${group.acKey}:${orderSetKey(group.rows)}`} acGroup={group} contactsReady={contactsConnection?.ready ?? true} renderedMessage={renderTemplate(activeTemplate.content, group)} statuses={statuses} onStatusChange={onStatusChange} onPhoneChange={onPhoneChange} onPreviewImage={(url, name) => setPreviewModalData({isOpen: true, dataUrl: url, acName: name})} showToast={showToast} tableSettings={tableSettings}/>)}</div>}
+        ) : <div className="workspace-grid">{filteredAcGroups.map(group => <AcCard key={`${group.acKey}:${orderSetKey(group.rows)}`} acGroup={group} contactsReady={contactsConnection?.ready ?? true} templates={templates} activeTemplateKey={activeTemplateKey} onSelectTemplateKey={onSelectTemplateKey} onManageTemplates={onNavigateToTemplates} templateNow={templateNow} statuses={statuses} onStatusChange={onStatusChange} onPhoneChange={onPhoneChange} onPreviewImage={(url, name) => setPreviewModalData({isOpen: true, dataUrl: url, acName: name})} showToast={showToast} tableSettings={tableSettings}/>)}</div>}
       </section>
       <Suspense fallback={null}>
         {isPasteModalOpen && <PasteInputModal isOpen onClose={() => setIsPasteModalOpen(false)} onImportData={onImportData} existingRows={rawRows} showToast={showToast}/>}

@@ -103,3 +103,16 @@ test('daily sessions in both browser storage and IndexedDB stay isolated per PIC
   assert.equal((await loadDailySession('2026-10-31', a)).rawRows.length, 0)
   assert.equal((await loadDailySession('2026-10-31', b)).rawRows[0].shipment, 'SYAIFUL-order')
 })
+
+test('twenty-template library and template_20 round-trip through shared API without touching another PIC', async () => {
+  const request=requestWith(createProfileHandler({database:database(),publicKey:'public-app-key',roster:async()=>[]}))
+  const templates=Object.fromEntries(Array.from({length:20},(_,i)=>[`template_${i+1}`,{id:`template_${i+1}`,name:`Template ${i+1}`,content:'{salam} {nama_ac}',period:'auto',customVariables:{link_formulir:'https://example.com'}}]))
+  await request('ANA',{method:'PATCH',body:{key:'templates',value:templates,expectedRevision:0}})
+  await request('ANA',{method:'PATCH',body:{key:'activeTemplateKey',value:'template_20',expectedRevision:0}})
+  const {records}=await request('ANA')
+  assert.equal(Object.keys(records.find(r=>r.setting_key==='templates').value).length,20)
+  assert.equal(records.find(r=>r.setting_key==='activeTemplateKey').value,'template_20')
+  assert.equal((await request('SYAIFUL')).records.length,0)
+  await assert.rejects(request('ANA',{method:'PATCH',body:{key:'templates',value:{...templates,template_21:{name:'No',content:''}},expectedRevision:1}}),{status:400})
+  assert.equal(Object.keys((await request('ANA')).records.find(r=>r.setting_key==='templates').value).length,20)
+})
