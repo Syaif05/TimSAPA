@@ -1,6 +1,6 @@
 # Antrean tetap terlihat dan koreksi nomor AC
 
-Pada desktop (lebar di atas 700px), panel Antrean bersifat sticky dan menyesuaikan tinggi ruang layar. Daftar AC mempunyai scroll sendiri; menggulir detail/lampiran panjang tidak menghilangkan panel tersebut. Kontainer memakai overflow clip agar sticky tidak terikat ke scroll container tersembunyi. Saat memilih AC lain, detail diarahkan kembali ke awal tanpa menghilangkan Antrean. Pada ponsel, daftar tetap horizontal agar tidak memenuhi ruang layar detail.
+Pada desktop (lebar di atas 800px), panel Antrean bersifat sticky dan menyesuaikan tinggi ruang layar. Daftar AC mempunyai scroll sendiri; menggulir detail/lampiran panjang tidak menghilangkan panel tersebut. Kontainer memakai overflow clip agar sticky tidak terikat ke scroll container tersembunyi. Saat memilih AC lain, detail diarahkan kembali ke awal tanpa menghilangkan Antrean. Pada ponsel, daftar tetap horizontal agar tidak memenuhi ruang layar detail.
 
 ## Update nomor
 

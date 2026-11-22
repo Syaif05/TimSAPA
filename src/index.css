@@ -567,7 +567,7 @@ button { cursor: pointer; }
 .dark [data-chat-color="zinc"] { --chat-color:#a1a1aa; }
 .dark .queue-critical { color:#fb7185; }
 .dark .ac-list-row.is-contacted .ac-avatar, .dark .chat-panel.is-contacted .detail-avatar { color:#102a1c; }
-@media(min-width:701px) and (max-width:1100px) { .workspace-split { grid-template-columns:285px minmax(0,1fr); } }
+@media(min-width:801px) and (max-width:1100px) { .workspace-split { grid-template-columns:285px minmax(0,1fr); } }
 @media(max-width:700px) {
   .queue-list .ac-list-row { width:265px; }
   .chat-status-banner { margin:0 14px 14px; padding:10px; flex-wrap:wrap; }
@@ -655,7 +655,7 @@ button { cursor: pointer; }
 
 /* Keep the queue in the viewport while the document scrolls through long AC details. */
 .workspace-panel { overflow:clip; }
-@media(min-width:701px) {
+@media(min-width:801px) {
   .workspace-split { align-items:start; }
   .workspace-split > .queue-panel { position:sticky; top:16px; height:calc(100vh - 32px); height:var(--queue-available-height,calc(100dvh - 32px)); max-height:calc(100dvh - 32px); display:flex; flex-direction:column; overflow:hidden; }
   .workspace-split .queue-heading,.workspace-split .queue-overview { flex-shrink:0; }

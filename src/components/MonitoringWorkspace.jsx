@@ -143,7 +143,7 @@ export function MonitoringWorkspace({
     let frame = null
     const measure = () => {
       frame = null
-      if (window.innerWidth <= 700) { queue.style.removeProperty('--queue-available-height'); return }
+      if (window.innerWidth <= 800) { queue.style.removeProperty('--queue-available-height'); return }
       const top = Math.max(16, queue.getBoundingClientRect().top)
       const height = Math.max(220, window.innerHeight - top - 16)
       queue.style.setProperty('--queue-available-height', `${height}px`)
@@ -184,7 +184,7 @@ export function MonitoringWorkspace({
     setSelectedAcKey(group.acKey)
     setSelectedAcIdentity(acPhoneIdentity(group.acName, group.cabang))
     const top = detailRef.current?.getBoundingClientRect().top
-    if (window.innerWidth > 700 && top < 16) window.scrollBy({top:top-16,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})
+    if (window.innerWidth > 800 && top < 16) window.scrollBy({top:top-16,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})
   }
 
   // Muat Demo
