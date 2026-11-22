@@ -1,5 +1,10 @@
 // Spreadsheet order status is independent from the local chat workflow status.
-export const normalizeOrderStatus = value => String(value ?? '').trim().toUpperCase()
+export const normalizeOrderStatus = value => {
+  const status = String(value ?? '').trim().replace(/\s+/g, ' ').toUpperCase()
+  // Dropdown labels can include an explanation, e.g. "Done (Selesai)".
+  // Match the whole status prefix, never "Not Done" or "Belum Done".
+  return /^DONE(?:$|\s|\()/.test(status) ? 'DONE' : status
+}
 export const isDoneOrder = row => normalizeOrderStatus(row?.sheetStatus) === 'DONE'
 export const activeOrders = rows => (rows || []).filter(row => !isDoneOrder(row))
 export const sourcePriority = source => source === 'DS' ? 0 : source === 'REG' ? 1 : 2

@@ -115,3 +115,16 @@ test('saving or resetting image designs preserves the PIC workspace palette', as
   assert.deepEqual(workspaceAppearance(undefined,undefined),DEFAULT_APPEARANCE)
   assert.equal(validSetting('tableSettings',shared),true,'existing preference API can store palette alongside image preferences')
 })
+
+test('explained DONE dropdown values are consistent in counts, queue, message and PNG DOM', async () => {
+  const finished = {...rows[1],sheetStatus:' Done (Selesai) '}
+  const input = [rows[0],finished]
+  for (const status of ['Done',' done\u00a0(Selesai) ','DONE(SAPA)']) assert.ok(isDoneOrder({sheetStatus:status}),status)
+  for (const status of ['Belum Done','Not Done','UNDONE','DONE_PENDING','Proses','']) assert.ok(!isDoneOrder({sheetStatus:status}),status)
+  assert.equal(summarizeOrders(input).done,1)
+  assert.deepEqual(workingSheetRows(input).map(r=>r.shipment),[rows[0].shipment])
+  const ac={acName:'AC ONE',rows:input,totalShipments:2}
+  assert.ok(!renderTemplate('{daftar_shipment}',ac).includes(finished.shipment))
+  const Table=await tableComponent()
+  assert.ok(!renderToStaticMarkup(React.createElement(Table,{acGroup:ac})).includes(finished.shipment))
+})

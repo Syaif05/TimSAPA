@@ -9,6 +9,7 @@ export function useLiveSheets({ storage = localStorage, active = true, forceEnab
   const [retry, setRetry] = useState(0)
   const [state, setState] = useState({ key: '', snapshot: null, phase: 'loading', error: '', checkedAt: null })
   const snapshots = useRef(new Map())
+  const requestFresh = useRef(false)
   const key = `${mode}:${mode === 'daily' ? today : 'linked'}`
   useEffect(() => {
     const timer = setInterval(() => setToday(jakartaDate()), 30000)
@@ -34,6 +35,7 @@ export function useLiveSheets({ storage = localStorage, active = true, forceEnab
       try {
         if (!navigator.onLine) throw new Error('Anda sedang offline. Menunggu koneksi internet.')
         const params = new URLSearchParams({ mode, ...(mode === 'daily' ? { date: today } : {}) })
+        if (requestFresh.current) { params.set('fresh', '1'); requestFresh.current = false }
         const response = await fetch(`/api/sheets?${params}`, { signal: controller.signal, cache: 'no-store', headers: etag ? { 'If-None-Match': etag } : {} })
         if (disposed) return
         if (response.status === 304 && snapshot) {
@@ -64,7 +66,7 @@ export function useLiveSheets({ storage = localStorage, active = true, forceEnab
     window.addEventListener('sapa:sheets-changed', resume)
     return () => { disposed = true; clearTimeout(timer); controller.abort(); document.removeEventListener('visibilitychange', resume); window.removeEventListener('online', resume); window.removeEventListener('sapa:sheets-changed', resume) }
   }, [enabled, active, mode, today, retry, key])
-  const refresh = useCallback(() => setRetry(value => value + 1), [])
+  const refresh = useCallback(() => { requestFresh.current = true; setRetry(value => value + 1) }, [])
   // Changing source/day cannot leak rows from the previous source into the new view.
   return { enabled, setEnabled, mode, setMode, refresh, snapshot: state.key === key ? state.snapshot : null, phase: enabled ? (state.key === key ? state.phase : 'loading') : 'manual', error: state.key === key ? state.error : '', checkedAt: state.key === key ? state.checkedAt : null }
 }
