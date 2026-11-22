@@ -49,3 +49,4 @@ Klik ikon ekstensi **SAPA • Gunakan Tab WhatsApp** untuk melihat status tab SA
 Data contoh di source bersifat fiktif. Data operasional dibaca dari sumber yang dikonfigurasi pada server, bukan disimpan dalam Git.
 
 - **Template pesan** mendukung 1–20 template per PIC, tambah/duplikat/hapus, pencarian, 41 variabel otomatis, serta 10 variabel khusus per template. Pemilih cepat ada di atas draf AC. Panduan: [Template pesan](docs/TEMPLATE-PESAN.md).
+- Panel **Antrean AC** tetap terlihat pada desktop saat detail panjang digulir. Tombol **Update nomor** menyimpan koreksi nomor berdasarkan nama AC + cabang untuk pemakaian ulang di Monitoring. Panduan: [Koreksi nomor AC](docs/KOREKSI-NOMOR-AC.md).

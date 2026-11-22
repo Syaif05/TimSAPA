@@ -652,3 +652,22 @@ button { cursor: pointer; }
 @media(max-width:700px) { .template-library-layout { grid-template-columns:minmax(0,1fr); }.template-preview-panel { grid-column:auto; }.template-list { max-height:220px; }.template-library-heading h1 { font-size:24px; }.template-editor-panel { padding:14px; }.template-save-actions { width:100%; justify-content:space-between; }.template-variable-list { grid-template-columns:minmax(0,1fr); }.template-custom-row { grid-template-columns:minmax(0,1fr) 28px; }.template-custom-row >button:first-child { grid-column:1/-1; text-align:left; } }
 .template-confirm-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
 .template-editor-panel > .template-warning { margin-bottom:14px; }
+
+/* Keep the queue in the viewport while the document scrolls through long AC details. */
+.workspace-panel { overflow:clip; }
+@media(min-width:701px) {
+  .workspace-split { align-items:start; }
+  .workspace-split > .queue-panel { position:sticky; top:16px; height:calc(100vh - 32px); height:var(--queue-available-height,calc(100dvh - 32px)); max-height:calc(100dvh - 32px); display:flex; flex-direction:column; overflow:hidden; }
+  .workspace-split .queue-heading,.workspace-split .queue-overview { flex-shrink:0; }
+  .workspace-split .queue-list { flex:1; min-height:0; max-height:none; overflow-y:auto; overscroll-behavior:contain; }
+}
+.phone-editor { display:grid; gap:7px; }
+.phone-editor-line { display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap; }
+.phone-editor-line .phone-field { flex:1; min-width:170px; }
+.phone-save-button { min-height:40px; font-size:11px; }
+.phone-editor-note { color:var(--muted); font-size:10px; line-height:1.7; }
+.phone-editor-note.saved { color:#15803d; }
+.phone-editor-error { color:#be123c; font-size:11px; line-height:1.7; }
+.dark .phone-editor-note.saved { color:#86efac; }
+.dark .phone-editor-error { color:#fda4af; }
+@media(max-width:700px) { .phone-editor-line .phone-field { flex-basis:100%; } }

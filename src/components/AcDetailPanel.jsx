@@ -2,12 +2,13 @@ import { recordActivity } from '../utils/activityTracker'
 import { orderSetKey, reconcileOrderDraft } from '../utils/orderState'
 import { OrderSheetEditor } from '../cloud/OrderSheetEditor'
 import React, { useState, useRef, useEffect, useMemo } from 'react'
-import { MessageSquare, Copy, Check, CheckCircle2, Clock3, Phone, Maximize2, RotateCcw, ExternalLink, ChevronLeft, ChevronRight, Palette } from 'lucide-react'
+import { MessageSquare, Copy, Check, CheckCircle2, Clock3, Phone, Maximize2, RotateCcw, Save, ExternalLink, ChevronLeft, ChevronRight, Palette } from 'lucide-react'
 import { InfoButton } from './InfoButton'
 import { AcTableRender } from './AcTableRender'
 import { copyTableImageToClipboard, generateTableDataUrl } from '../utils/imageGenerator'
 import { formatPhoneDisplay, isValidIndonesianPhone } from '../utils/phoneUtils'
 import { useWhatsAppChat } from '../hooks/useWhatsAppChat'
+import { acPhoneIdentity } from '../utils/acPhoneOverrides'
 import { renderTemplate } from '../utils/templateEngine'
 import { getStatusBadgeStyles, DEFAULT_STATUSES } from '../utils/statusConfig'
 
@@ -40,6 +41,10 @@ export function AcDetailPanel({
   const selectedTemplate = templates?.[resolvedTemplateKey]
   const templateText = useMemo(() => selectedTemplate ? renderTemplate(selectedTemplate.content, acGroup, {now:templateNow,period:selectedTemplate.period,customVariables:selectedTemplate.customVariables}) : renderedMessage, [selectedTemplate, acGroup, templateNow, renderedMessage])
   const [phone, setPhone] = useState(acGroup?.phone || '')
+  const [isSavingPhone, setIsSavingPhone] = useState(false)
+  const [phoneError, setPhoneError] = useState('')
+  const previousPhone = useRef(acGroup?.phone || '')
+  const editingPhoneVersion = useRef(undefined)
   const [message, setMessage] = useState(templateText || '')
   const [pendingTemplateKey, setPendingTemplateKey] = useState(null)
   const [isCopiedImage, setIsCopiedImage] = useState(false)
@@ -60,7 +65,10 @@ export function AcDetailPanel({
   }, [templateText, ordersKey])
 
   useEffect(() => {
-    setPhone(acGroup?.phone || '')
+    const previous = previousPhone.current
+    const next = acGroup?.phone || ''
+    setPhone(current => current === previous ? next : current)
+    previousPhone.current = next
   }, [acGroup?.phone])
 
   const { handleOpenWhatsApp, isOpeningWhatsApp } = useWhatsAppChat({
@@ -76,7 +84,18 @@ export function AcDetailPanel({
     )
   }
 
-  const isValidPhone = isValidIndonesianPhone(phone)
+  const isValidPhone = isValidIndonesianPhone(phone) && /^[+\d\s().-]+$/.test(phone) && phone.length <= 40
+  const phoneIsDirty = String(phone).trim() !== String(acGroup.phone || '').trim()
+  const phoneRecord = acGroup.rows.map(row => row.phoneOverride).find(record => record?.identity === acPhoneIdentity(acGroup.acName, acGroup.cabang))
+  const savePhone = async () => {
+    setIsSavingPhone(true); setPhoneError('')
+    try {
+      const record = await onPhoneChange(acGroup, phone, editingPhoneVersion.current ?? phoneRecord?.version ?? '')
+      setPhone(record.phone); previousPhone.current=record.phone; editingPhoneVersion.current=undefined
+      showToast?.('Nomor AC tersimpan. Nomor ini akan dipakai saat menghubungi kembali.', 'success')
+    } catch(error) { setPhoneError(error.message || 'Nomor belum tersimpan. Coba lagi.'); }
+    finally { setIsSavingPhone(false) }
+  }
 
   // Salin Gambar Tabel ke Clipboard
   const handleCopyImage = async () => {
@@ -163,13 +182,17 @@ export function AcDetailPanel({
         <select className="clean-select status-select" aria-label="Status chat lokal" title="Status chat lokal; tidak mengubah Google Sheets" value={acGroup.status || 'belum_dikerjakan'} onChange={e => onStatusChange(acGroup.acKey, e.target.value)}>{statuses.map(status => <option key={status.id} value={status.id}>{status.shortLabel || status.label}</option>)}</select>
         <span className="text-[11px] text-zinc-400">{acGroup.totalStores} toko · {acGroup.totalShipments} pesanan</span>
         <OrderSheetEditor rows={acGroup.rows} showToast={showToast}/>
-        <InfoButton title="Detail kontak dan monitoring"><p>Cabang: {acGroup.cabang || '—'}<br/>Region: {acGroup.region || '—'}<br/>PIC: {acGroup.pic || '—'}<br/>Jam: {acGroup.jam || '—'}</p><p>Nomor WA: {formatPhoneDisplay(phone)}<br/>CUG toko: {formatPhoneDisplay(acGroup.cugToko)}</p><p>Sumber: {['contacts_sheet', 'contacts_sheet_ac'].includes(acGroup.rows[0]?.matchSource) ? 'Spreadsheet kontak' : acGroup.rows[0]?.matchSource === 'master_db' ? 'Database kontak' : acGroup.rows[0]?.matchSource === 'sheet_data' ? 'Lembar SAPA' : 'Input manual'}</p><p>Status chat lokal: {statusStyles.label}</p>{acGroup.rows.filter(row => row.source).map(row => <p key={row.id} className="text-xs">{row.source} · {row.shipment}<br/>Sheet: {row.sheetStatus || 'Belum diisi'} · PIC: {row.pic}<br/>{row.kendala || ''}{row.grouping ? ` · ${row.grouping}` : ''}</p>)}{Object.entries(acGroup.slaBreakdown || {}).map(([sla, count]) => <p key={sla}>{sla}: {count}</p>)}</InfoButton>
+        <InfoButton title="Detail kontak dan monitoring"><p>Cabang: {acGroup.cabang || '—'}<br/>Region: {acGroup.region || '—'}<br/>PIC: {acGroup.pic || '—'}<br/>Jam: {acGroup.jam || '—'}</p><p>Nomor WA: {formatPhoneDisplay(phone)}<br/>CUG toko: {formatPhoneDisplay(acGroup.cugToko)}</p><p>Sumber: {['contacts_sheet', 'contacts_sheet_ac'].includes(acGroup.rows[0]?.matchSource) ? 'Spreadsheet kontak' : acGroup.rows[0]?.matchSource === 'manual_contact' ? 'Koreksi nomor tersimpan' : acGroup.rows[0]?.matchSource === 'master_db' ? 'Database kontak' : acGroup.rows[0]?.matchSource === 'sheet_data' ? 'Lembar SAPA' : 'Input manual'}</p><p>Status chat lokal: {statusStyles.label}</p>{acGroup.rows.filter(row => row.source).map(row => <p key={row.id} className="text-xs">{row.source} · {row.shipment}<br/>Sheet: {row.sheetStatus || 'Belum diisi'} · PIC: {row.pic}<br/>{row.kendala || ''}{row.grouping ? ` · ${row.grouping}` : ''}</p>)}{Object.entries(acGroup.slaBreakdown || {}).map(([sla, count]) => <p key={sla}>{sla}: {count}</p>)}</InfoButton>
       </div>
       {acGroup.rows.some(row => row.source) && <div className="sheet-order-summary"><span>{[...new Set(acGroup.rows.map(row => row.source).filter(Boolean))].join(' + ')}</span><span>Status sheet: {[...new Set(acGroup.rows.map(row => row.sheetStatus || 'Belum diisi'))].join(' · ')}</span></div>}
       <div className="chat-body">
-        <div className={`phone-field ${!isValidPhone ? 'invalid' : ''}`}>
-          <Phone size={16}/><input aria-label="Nomor WhatsApp AC" type="tel" inputMode="tel" value={phone} placeholder="Nomor WhatsApp" onChange={e => {setPhone(e.target.value); onPhoneChange(acGroup.acKey, e.target.value)}}/>
-          {isValidPhone ? <Check size={15} className="text-emerald-600"/> : <span className="text-[11px] text-rose-500 whitespace-nowrap">{phone ? 'Tidak valid' : 'Isi nomor'}</span>}
+        <div className="phone-editor">
+          <div className="phone-editor-line"><div className={`phone-field ${!isValidPhone ? 'invalid' : ''}`}>
+            <Phone size={16}/><input aria-label="Nomor WhatsApp AC" type="tel" inputMode="tel" value={phone} disabled={isSavingPhone} placeholder="Nomor WhatsApp" onChange={e => {if(!phoneIsDirty)editingPhoneVersion.current=phoneRecord?.version || '';setPhone(e.target.value);setPhoneError('')}}/>
+            {isValidPhone ? <Check size={15} className="text-emerald-600" aria-label="Format nomor valid"/> : <span className="text-[11px] text-rose-500 whitespace-nowrap">{phone ? 'Tidak valid' : 'Isi nomor'}</span>}
+          </div><button className="secondary-button phone-save-button" onClick={savePhone} disabled={!isValidPhone || isSavingPhone || !onPhoneChange || (!!phoneRecord && !phoneIsDirty)}>{phoneRecord && !phoneIsDirty ? <Check size={14}/> : <Save size={14}/>}<span>{isSavingPhone ? 'Menyimpan…' : phoneRecord && !phoneIsDirty ? 'Tersimpan' : 'Update nomor'}</span></button>{phoneIsDirty && <button className="secondary-button" disabled={isSavingPhone} onClick={()=>{setPhone(acGroup.phone || '');editingPhoneVersion.current=undefined;setPhoneError('')}}>Batal</button>}</div>
+          <p className={`phone-editor-note ${phoneRecord && !phoneIsDirty ? 'saved' : ''}`}>{phoneIsDirty ? 'Nomor belum disimpan. Klik Update nomor sebelum membuka chat.' : phoneRecord ? `Koreksi tersimpan untuk AC ini di ${acGroup.cabang || 'cabang ini'}. Berlaku untuk semua PIC, termasuk saat berganti hari atau perangkat.` : 'Nomor kosong atau salah? Ubah nomor lalu klik Update nomor untuk menyimpannya.'}</p>
+          {phoneError && <p className="phone-editor-error" role="alert">{phoneError}</p>}
         </div>
         {!contactsReady && isValidPhone && <p className="text-[11px] text-amber-600">Kontak belum tersinkron. Periksa nomor sebelum membuka chat.</p>}
         {selectedTemplate && <div className="template-quick-picker">
@@ -189,7 +212,7 @@ export function AcDetailPanel({
       </div>
       <div className="chat-actions">
         <InfoButton title="Cara mengirim pesan"><p>Klik Buka chat. Pesan akan terisi di tab WhatsApp dan gambar tabel disalin ke clipboard.</p><p>Tempel gambar dengan Cmd/Ctrl + V, lalu tekan Kirim. Jika penyalinan gagal, gunakan Salin gambar atau unduh PNG lewat ikon pratinjau.</p></InfoButton>
-        <div className="flex items-center gap-2 flex-wrap"><button className="secondary-button" disabled={isGenerating || isOpeningWhatsApp} onClick={handleCopyImage}>{isCopiedImage ? <Check size={15}/> : <Copy size={15}/>}<span>{isGenerating ? 'Menyalin…' : isCopiedImage ? 'Tersalin' : 'Salin gambar'}</span></button><button className="primary-button chat-open-button" onClick={handleOpenWhatsApp} disabled={!isValidPhone || isOpeningWhatsApp || isGenerating} title={!isValidPhone ? 'Isi nomor WhatsApp Indonesia yang valid' : 'Buka chat di tab WhatsApp Web yang sudah ada'}><MessageSquare size={16}/><span>{isOpeningWhatsApp ? 'Menyiapkan…' : 'Buka chat'}</span><ExternalLink size={13}/></button></div>
+        <div className="flex items-center gap-2 flex-wrap"><button className="secondary-button" disabled={isGenerating || isOpeningWhatsApp} onClick={handleCopyImage}>{isCopiedImage ? <Check size={15}/> : <Copy size={15}/>}<span>{isGenerating ? 'Menyalin…' : isCopiedImage ? 'Tersalin' : 'Salin gambar'}</span></button><button className="primary-button chat-open-button" onClick={handleOpenWhatsApp} disabled={!isValidPhone || phoneIsDirty || isSavingPhone || isOpeningWhatsApp || isGenerating} title={phoneIsDirty ? 'Simpan nomor dengan tombol Update nomor terlebih dahulu' : !isValidPhone ? 'Isi nomor WhatsApp Indonesia yang valid' : 'Buka chat di tab WhatsApp Web yang sudah ada'}><MessageSquare size={16}/><span>{isOpeningWhatsApp ? 'Menyiapkan…' : 'Buka chat'}</span><ExternalLink size={13}/></button></div>
       </div>
     </section>
   )

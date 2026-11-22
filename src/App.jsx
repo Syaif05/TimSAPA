@@ -1,3 +1,5 @@
+import { useAcPhoneOverrides } from './hooks/useAcPhoneOverrides'
+import { applyAcPhoneOverrides } from './utils/acPhoneOverrides'
 import { useActivity } from './hooks/useActivity'
 import { normalizePhone } from './utils/phoneUtils'
 import { useJakartaDate } from './hooks/useJakartaDate'
@@ -134,7 +136,8 @@ function WorkspaceApp() {
   const handleSaveTableSettings = async settings => { setSharedTableSettings(prev => saveImageSettings(settings, prev)); await profile.flush() }
 
   // 10. Manual Phone Overrides
-  const [phoneOverrides, setPhoneOverrides] = useState(() => {
+  const savedAcPhones = useAcPhoneOverrides(storage)
+  const [phoneOverrides] = useState(() => {
     try {
       const saved = storage.getItem('sapa_phone_overrides')
       if (saved) return JSON.parse(saved)
@@ -235,13 +238,12 @@ function WorkspaceApp() {
     setSelectedDate(newDate)
   }
 
-  // Phone Change Handler
-  const handlePhoneChange = (acKey, newPhone) => {
-    const updated = { ...phoneOverrides, [acKey]: newPhone }
-    setPhoneOverrides(updated)
-    try {
-      storage.setItem('sapa_phone_overrides', JSON.stringify(updated))
-    } catch {}
+  // Commit only after an explicit save. Persist independently of the date and old phone-based group key.
+  const handlePhoneChange = async (acGroup, phone, expectedVersion) => {
+    const record = await savedAcPhones.save({acName:acGroup.acName,cabang:acGroup.cabang,phone,pic:profile.name,expectedVersion})
+    const nextKey = `WA:${record.phone}`
+    if (nextKey !== acGroup.acKey && !activeStatusMap[nextKey]) handleMonitoringStatusChange(nextKey, acGroup.status || 'belum_dikerjakan')
+    return record
   }
 
   // Import Data Handler (dengan Dukungan Anti-Duplikat Cerdas)
@@ -270,23 +272,17 @@ function WorkspaceApp() {
     if (!monitoringRows.length) return []
 
     // 1. Cocokkan dengan master contacts
-    const enriched = matchSapaWithContacts(monitoringRows, masterContacts, { preferMasterContacts: true }).map(row => {
+    const enriched = applyAcPhoneOverrides(matchSapaWithContacts(monitoringRows, masterContacts, { preferMasterContacts: true }).map(row => {
       const name=String(row.resolvedAcName||'').trim().toUpperCase()
       const override=phoneOverrides[`WA:${normalizePhone(row.resolvedPhone)}`] || phoneOverrides[`${row.source}::${name}`] || phoneOverrides[name] || phoneOverrides[row.resolvedAcName]
       return override ? {...row,resolvedPhone:override} : row
-    })
+    }), savedAcPhones.records)
 
     // 2. Kelompokkan per AC
     const groups = groupRowsByAc(enriched, activeStatusMap, { workingOnly: true, mergeContacts: true })
 
-    // 3. Terapkan manual phone overrides jika ada
-    return groups.map((g) => {
-      if (phoneOverrides[g.acKey] || phoneOverrides[g.acName]) {
-        return { ...g, phone: phoneOverrides[g.acKey] || phoneOverrides[g.acName] }
-      }
-      return g
-    })
-  }, [monitoringRows, masterContacts, activeStatusMap, phoneOverrides])
+    return groups
+  }, [monitoringRows, masterContacts, activeStatusMap, phoneOverrides, savedAcPhones.records])
 
   // Hitung jumlah AC yang belum selesai (berdasarkan konfigurasi status countsAsCompleted)
   const pendingCount = useMemo(() => {

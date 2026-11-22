@@ -1,3 +1,4 @@
+import { createAcPhoneOverrides } from './acPhoneOverrides.js'
 import { cleanActivity, activityRange } from './activity.js'
 import { createTarikUpdater } from './tarikUpdate.js'
 import { cleanReportDesign } from '../src/utils/reportDesign.js'
@@ -108,6 +109,7 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
     return data
   }
   const sheets = createGoogleSheetsApi({ database, googleRequest, now, contactsSource: async () => { const settings = await sourceSettings(); return settings.contacts_spreadsheet_id ? { id: settings.contacts_spreadsheet_id, sheet: settings.contacts_sheet } : CONTACTS_SOURCE } })
+  const acPhones = createAcPhoneOverrides({ database, now })
   const updateTarik = createTarikUpdater({ database, googleRequest, now })
   async function begin(request, purpose) {
     const admin = purpose === 'connect' ? await requireAdmin(request) : null
@@ -157,6 +159,12 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
           } catch (error) {
             return json({ enabled: true, configured: true, backendReady: false, admin: false, connected: false, canEdit: false, backendError: error.status ? error.message : 'Penyimpanan Supabase belum dapat diperiksa. Coba lagi setelah jaringan pulih.' })
           }
+        }
+        // Contact corrections live in the database and do not require a Google token.
+        if (path === '/api/contacts' && request.method === 'GET' && url.searchParams.get('mode') === 'phone-overrides') return json(await acPhones.list())
+        if (path === '/api/contacts' && request.method === 'PATCH') {
+          sameOrigin(request)
+          return json(await acPhones.save(await bodyOf(request)))
         }
         if (path === '/api/report-design') {
           if (request.method === 'GET') {

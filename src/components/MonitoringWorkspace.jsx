@@ -1,8 +1,9 @@
+import { acPhoneIdentity } from '../utils/acPhoneOverrides'
 import { OrderProgress } from './OrderProgress'
 import { isDoneOrder, orderSetKey } from '../utils/orderState'
 import { filterMonitoringGroups } from '../utils/monitoringView'
 import { usePicProfile } from '../profiles/ProfileContext'
-import React, { useState, useMemo, lazy, Suspense, useDeferredValue, useEffect } from 'react'
+import React, { useState, useMemo, lazy, Suspense, useDeferredValue, useEffect, useRef } from 'react'
 import { Plus, FileSpreadsheet, LayoutGrid, Columns, Search, RotateCcw, Palette, Calendar, Trash2, CheckCircle2 } from 'lucide-react'
 import { WhatsAppConnection } from './WhatsAppConnection'
 import { AcDetailPanel } from './AcDetailPanel'
@@ -37,7 +38,6 @@ export function MonitoringWorkspace({
   onImportData,
   onStatusChange,
   onPhoneChange,
-  onResetSentStatus,
   sentStatusMap,
   showToast,
   isPasteModalOpen: externalPasteOpen,
@@ -58,6 +58,10 @@ export function MonitoringWorkspace({
   const [viewMode, setViewMode] = useState(() => { try { const saved = storage.getItem('sapa_monitoring_view'); return ['split','grid','work'].includes(saved) ? saved : 'split' } catch { return 'split' } })
   useEffect(() => { try { storage.setItem('sapa_monitoring_view', viewMode) } catch {} }, [viewMode, storage])
   const [selectedAcKey, setSelectedAcKey] = useState(null)
+  const [selectedAcIdentity, setSelectedAcIdentity] = useState(null)
+  const queueRef = useRef(null)
+  const detailRef = useRef(null)
+
   const [templateNow, setTemplateNow] = useState(() => new Date())
   useEffect(() => { const timer = setInterval(() => setTemplateNow(new Date()), 60000); return () => clearInterval(timer) }, [])
 
@@ -133,6 +137,25 @@ export function MonitoringWorkspace({
 
   // Both views operate on the same matching orders and regenerate group totals.
   const filteredAcGroups = useMemo(() => filterMonitoringGroups(acGroups, filters, deferredSearch, sentStatusMap), [acGroups, filters, deferredSearch, sentStatusMap])
+  useEffect(() => {
+    const queue = queueRef.current
+    if (!queue || viewMode !== 'split') return
+    let frame = null
+    const measure = () => {
+      frame = null
+      if (window.innerWidth <= 700) { queue.style.removeProperty('--queue-available-height'); return }
+      const top = Math.max(16, queue.getBoundingClientRect().top)
+      const height = Math.max(220, window.innerHeight - top - 16)
+      queue.style.setProperty('--queue-available-height', `${height}px`)
+    }
+    const schedule = () => { if (frame === null) frame = requestAnimationFrame(measure) }
+    const observer = new ResizeObserver(schedule)
+    observer.observe(queue.parentElement)
+    window.addEventListener('scroll', schedule, {passive:true})
+    window.addEventListener('resize', schedule)
+    measure()
+    return () => { observer.disconnect();window.removeEventListener('scroll',schedule);window.removeEventListener('resize',schedule);if(frame!==null)cancelAnimationFrame(frame) }
+  }, [viewMode, filteredAcGroups.length])
   const contactedCount = filteredAcGroups.filter(group => getStatusById(group.status, statuses).countsAsCompleted).length
   const contactProgress = filteredAcGroups.length ? Math.round(contactedCount / filteredAcGroups.length * 100) : 0
 
@@ -148,11 +171,21 @@ export function MonitoringWorkspace({
 
 
   // Selected AC for Master-Detail view
-  const visibleAcIndex = Math.max(0, filteredAcGroups.findIndex(group => group.acKey === selectedAcKey))
+  const selectedIndex = filteredAcGroups.findIndex(group => group.acKey === selectedAcKey)
+  const visibleAcIndex = selectedIndex >= 0 ? selectedIndex : Math.max(0, filteredAcGroups.findIndex(group => acPhoneIdentity(group.acName, group.cabang) === selectedAcIdentity))
   const currentAc = filteredAcGroups[visibleAcIndex]
   useEffect(() => {
     if (currentAc && currentAc.acKey !== selectedAcKey) setSelectedAcKey(currentAc.acKey)
-  }, [currentAc?.acKey, selectedAcKey])
+    if (currentAc) setSelectedAcIdentity(acPhoneIdentity(currentAc.acName, currentAc.cabang))
+  }, [currentAc, selectedAcKey])
+
+  const selectAc = group => {
+    if (!group) return
+    setSelectedAcKey(group.acKey)
+    setSelectedAcIdentity(acPhoneIdentity(group.acName, group.cabang))
+    const top = detailRef.current?.getBoundingClientRect().top
+    if (window.innerWidth > 700 && top < 16) window.scrollBy({top:top-16,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})
+  }
 
   // Muat Demo
   const handleLoadDemo = () => {
@@ -223,16 +256,16 @@ export function MonitoringWorkspace({
 
         {viewMode === 'work' ? <HasilKerjaView key={`${isLive ? dataConnection?.mode : 'manual'}:${isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate}`} rows={sheetRows} date={isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate} scope={isLive ? dataConnection?.mode || 'daily' : 'manual'} storage={storage} defaultPic={isLive ? sheetPreferences?.pic : filters.pic} defaultSource={isLive ? sheetPreferences?.source : 'ALL'} showToast={showToast}/> : acGroups.length === 0 ? <div className="empty-panel"><FileSpreadsheet size={30} strokeWidth={1}/><h2>{isLive ? (dataConnection.snapshot ? 'Tidak ada pesanan untuk filter ini' : dataConnection.phase === 'error' ? 'Sumber belum bisa dibaca' : 'Menghubungkan Google Sheets…') : 'Belum ada data'}</h2>{isLive ? <span className="text-xs text-zinc-400">{dataConnection.snapshot ? 'Ubah PIC, sumber, atau status pesanan.' : 'Data manual tetap tersimpan terpisah.'}</span> : <div className="flex gap-2 flex-wrap justify-center"><button className="primary-button" onClick={() => setIsPasteModalOpen(true)}><Plus size={15}/>Input data</button><button className="secondary-button" onClick={handleLoadDemo}>Muat demo</button></div>}</div> : filteredAcGroups.length === 0 ? <div className="empty-panel"><Search size={28}/><h2>Tidak ada hasil</h2><span className="text-xs text-zinc-400">Sesuaikan pencarian atau filter.</span></div> : viewMode === 'split' ? (
           <div className="workspace-split">
-            <section className="queue-panel" aria-label="Antrean AC">
+            <section ref={queueRef} className="queue-panel" aria-label="Antrean AC">
               <div className="queue-heading"><div><span className="queue-eyebrow">PROGRES FOLLOW UP</span><h2>Antrean AC</h2></div><span className="queue-total">{filteredAcGroups.length} AC</span></div>
               <div className="queue-overview">
                 <div className="queue-overview-stats"><span><i className="queue-dot complete"/><strong>{contactedCount}</strong> dihubungi</span><span><strong>{filteredAcGroups.length - contactedCount}</strong> tindak lanjut</span></div>
                 <div className="queue-progress" role="progressbar" aria-label="Progres status chat antrean yang ditampilkan" aria-valuenow={contactProgress} aria-valuemin={0} aria-valuemax={100}><span style={{width:`${contactProgress}%`}}/></div>
                 <p>Status chat lokal · {contactProgress}% ditandai dihubungi</p>
               </div>
-              <div className="queue-list">{filteredAcGroups.map((group) => <AcListItem key={group.acKey} acGroup={group} isSelected={currentAc?.acKey === group.acKey} statuses={statuses} onClick={() => setSelectedAcKey(group.acKey)}/>)}</div>
+              <div className="queue-list">{filteredAcGroups.map((group) => <AcListItem key={group.acKey} acGroup={group} isSelected={currentAc?.acKey === group.acKey} statuses={statuses} onClick={() => selectAc(group)}/>)}</div>
             </section>
-            <div className="detail-wrapper">{currentAc && <AcDetailPanel key={`${currentAc.acKey}:${orderSetKey(currentAc.rows)}`} acGroup={currentAc} contactsReady={contactsConnection?.ready ?? true} templates={templates} activeTemplateKey={activeTemplateKey} onSelectTemplateKey={onSelectTemplateKey} onManageTemplates={onNavigateToTemplates} templateNow={templateNow} statuses={statuses} onStatusChange={onStatusChange} onPhoneChange={onPhoneChange} onPreviewImage={(url, name) => setPreviewModalData({isOpen: true, dataUrl: url, acName: name})} showToast={showToast} onPrevAc={() => setSelectedAcKey(filteredAcGroups[Math.max(0, visibleAcIndex - 1)]?.acKey)} onNextAc={() => setSelectedAcKey(filteredAcGroups[Math.min(filteredAcGroups.length - 1, visibleAcIndex + 1)]?.acKey)} hasPrev={visibleAcIndex > 0} hasNext={visibleAcIndex < filteredAcGroups.length - 1} currentIndex={visibleAcIndex} totalCount={filteredAcGroups.length} tableSettings={tableSettings} onNavigateToSettings={onNavigateToSettings}/>}</div>
+            <div ref={detailRef} className="detail-wrapper">{currentAc && <AcDetailPanel key={`${acPhoneIdentity(currentAc.acName,currentAc.cabang)}:${orderSetKey(currentAc.rows)}`} acGroup={currentAc} contactsReady={contactsConnection?.ready ?? true} templates={templates} activeTemplateKey={activeTemplateKey} onSelectTemplateKey={onSelectTemplateKey} onManageTemplates={onNavigateToTemplates} templateNow={templateNow} statuses={statuses} onStatusChange={onStatusChange} onPhoneChange={onPhoneChange} onPreviewImage={(url, name) => setPreviewModalData({isOpen: true, dataUrl: url, acName: name})} showToast={showToast} onPrevAc={() => selectAc(filteredAcGroups[Math.max(0, visibleAcIndex - 1)])} onNextAc={() => selectAc(filteredAcGroups[Math.min(filteredAcGroups.length - 1, visibleAcIndex + 1)])} hasPrev={visibleAcIndex > 0} hasNext={visibleAcIndex < filteredAcGroups.length - 1} currentIndex={visibleAcIndex} totalCount={filteredAcGroups.length} tableSettings={tableSettings} onNavigateToSettings={onNavigateToSettings}/>}</div>
           </div>
         ) : <div className="workspace-grid">{filteredAcGroups.map(group => <AcCard key={`${group.acKey}:${orderSetKey(group.rows)}`} acGroup={group} contactsReady={contactsConnection?.ready ?? true} templates={templates} activeTemplateKey={activeTemplateKey} onSelectTemplateKey={onSelectTemplateKey} onManageTemplates={onNavigateToTemplates} templateNow={templateNow} statuses={statuses} onStatusChange={onStatusChange} onPhoneChange={onPhoneChange} onPreviewImage={(url, name) => setPreviewModalData({isOpen: true, dataUrl: url, acName: name})} showToast={showToast} tableSettings={tableSettings}/>)}</div>}
       </section>
