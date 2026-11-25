@@ -1,5 +1,5 @@
 import { randomUUID, randomInt } from 'node:crypto'
-import { filterNewTarikRows, TARIK_COLUMNS } from '../src/utils/tarikData.js'
+import { TARIK_COLUMNS } from '../src/utils/tarikData.js'
 import { dailySheetTitle, jakartaDate, SPREADSHEET_ID } from '../src/utils/sheetsConfig.js'
 import { parseMonitoringValues } from '../src/utils/sheetsParser.js'
 import { httpError } from './googleOAuth.js'
@@ -39,7 +39,9 @@ export function createTarikUpdater({database,googleRequest,now=()=>Date.now()}) 
   if(!['REG','DS'].includes(source)||body.date!==date||!Array.isArray(rows)||!rows.length||rows.length>5000)throw httpError(400,'Pilih REG/DS dan data hari ini (maksimal 5.000 baris per update).')
   const safe=rows.map(row=>{
    if(!row || typeof row!=='object' || row.source!==source||!row.shipment||!row.kodeToko)throw httpError(400,'Identitas shipment/sumber tidak valid.')
-   return Object.fromEntries([['source',source],...TARIK_COLUMNS.map(([key])=>{if(typeof row[key]!=='string'||row[key].length>1000)throw httpError(400,'Isi data tarikan tidak valid.');return [key,row[key].trim()]})])
+   const cleaned=Object.fromEntries([['source',source],...TARIK_COLUMNS.map(([key])=>{if(typeof row[key]!=='string'||row[key].length>1000)throw httpError(400,'Isi data tarikan tidak valid.');return [key,row[key].trim()]})])
+   if(!cleaned.shipment||!cleaned.kodeToko)throw httpError(400,'Identitas shipment/sumber tidak valid.')
+   return cleaned
   })
   const lockKey=`lock:tarik:${SPREADSHEET_ID}`, token=randomUUID()
   await database(queryPath('sapa_source_cache',{cache_key:`eq.${lockKey}`,expires_at:`lt.${new Date(now()).toISOString()}`}),{method:'DELETE'})
@@ -56,22 +58,20 @@ export function createTarikUpdater({database,googleRequest,now=()=>Date.now()}) 
    const valuesByTab=tabs.map((t,i)=>{const values=data.valueRanges[i].values||[];return t.created?values.slice(0,3):values})
    valuesByTab.forEach(checkHeaders)
    const existing=tabs.flatMap((t,i)=>parseMonitoringValues(valuesByTab[i],t.key))
-   const {fresh,duplicate}=filterNewTarikRows(safe,existing)
    const createdSheets=tabs.filter(t=>t.created).map(t=>t.title)
-   if(!fresh.length && !createdSheets.length)return {inserted:0,ignored:duplicate.length,source,date,createdSheets}
    const index=tabs.findIndex(t=>t.key===source),tab=tabs[index],values=valuesByTab[index]
    const last=Math.max(tab.created?3:2,...existing.filter(r=>r.source===source).map(r=>r.sheetRow))
-   if(values.slice(last,last+fresh.length).some(row=>row.slice(1,12).some(v=>String(v||'').trim())))throw httpError(409,'Area tujuan B:L berisi data tanpa Shipment. Periksa baris terakhir sheet terlebih dahulu.')
-   const requests=[...tabs.flatMap(t=>t.requests),...appendRequests({sheetId:tab.sheetId,gridRows:tab.gridProperties.rowCount,start:last,rows:fresh})]
-   const audit=(await database('sapa_sheet_audit',{method:'POST',body:{actor,source,sheet_date:date,shipment:`IMPORT:${token}`,sheet_row:last+1,before_value:{count:existing.length},after_value:{count:fresh.length,range:'B:L',createdSheets},outcome:'pending'}}))[0]
+   if(values.slice(last,last+safe.length).some(row=>row.slice(1,12).some(v=>String(v||'').trim())))throw httpError(409,'Area tujuan B:L berisi data tanpa Shipment. Periksa baris terakhir sheet terlebih dahulu.')
+   const requests=[...tabs.flatMap(t=>t.requests),...appendRequests({sheetId:tab.sheetId,gridRows:tab.gridProperties.rowCount,start:last,rows:safe})]
+   const audit=(await database('sapa_sheet_audit',{method:'POST',body:{actor,source,sheet_date:date,shipment:`IMPORT:${token}`,sheet_row:last+1,before_value:{count:existing.length},after_value:{count:safe.length,range:'B:L',createdSheets},outcome:'pending'}}))[0]
    if(!audit?.id)throw httpError(503,'Riwayat update belum tersimpan. Update dibatalkan.')
    uncertain=true
    await googleRequest(SPREADSHEET_ID,':batchUpdate',{method:'POST',body:{requests}})
    await database(queryPath('sapa_sheet_audit',{id:`eq.${audit.id}`}),{method:'PATCH',body:{outcome:'completed'}}).catch(()=>{})
    uncertain=false
    await database(queryPath('sapa_source_cache',{cache_key:`eq.monitoring:daily:${date}`}),{method:'DELETE'}).catch(()=>{})
-   return {inserted:fresh.length,ignored:duplicate.length,source,date,sheet:tab.title,createdSheets}
-  } catch(error) { if(uncertain)throw httpError(409,'Status update belum dapat dipastikan. Periksa spreadsheet dan Periksa ulang; jangan kirim ulang sebelum hasil dipastikan. Update dikunci sementara.');throw error }
+   return {inserted:safe.length,ignored:0,source,date,sheet:tab.title,createdSheets}
+  } catch(error) { if(uncertain)throw httpError(409,'Status update belum dapat dipastikan. Periksa isi spreadsheet; jangan kirim ulang sebelum hasil dipastikan. Update dikunci sementara.');throw error }
   finally {if(!uncertain)await database(queryPath('sapa_source_cache',{cache_key:`eq.${lockKey}`,'snapshot->>token':`eq.${token}`}),{method:'DELETE'}).catch(()=>{})}
  }
 }

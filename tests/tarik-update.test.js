@@ -4,7 +4,7 @@ import { appendRequests, createTarikUpdater, planDailyTabs } from '../server/tar
 const time=Date.parse('2026-11-05T01:00:00Z')
 const headers=['Jam','No AC','Nama AC','Kode Toko','Nama Toko','Cabang','Region','Shipment','Nama Konsumen','SLA','Nama AM','No AM','POD AC','APV AM','PIC','Status','Kondisi Motor','Jumlah Personil','Nama Pejabat','Kendala','Grouping','GLI']
 const row=(shipment='NEW')=>({source:'REG',noAc:'6281234567890',namaAc:'AC',kodeToko:'A01',namaToko:'TOKO',cabang:'CABANG',region:'REG 1',shipment,namaKonsumen:'CUSTOMER',sla:'1 Jam',namaAm:'AM',noAm:''})
-function fixture({locked=false,fail=false,badHeader=false,missingToday=false}={}){
+function fixture({locked=false,fail=false,badHeader=false,missingToday=false,dsShipment=''}={}){
  let batch=null;let released=false
  const values=[[],[...headers],['07:00','','AC','A00','Toko','Cabang','','OLD','','','','','','','PIC','Done']]
  if(badHeader)values[1][3]='Salah'
@@ -16,7 +16,7 @@ function fixture({locked=false,fail=false,badHeader=false,missingToday=false}={}
  }
  const googleRequest=async(id,suffix,options)=>{
   if(suffix===':batchUpdate'){batch=options.body;if(fail)throw Error('timeout');return {}}
-  if(suffix.startsWith('/values:batchGet'))return {valueRanges:[{values},{values:[[],headers]}]}
+  if(suffix.startsWith('/values:batchGet'))return {valueRanges:[{values},{values:dsShipment ? [[],headers,['08:00','','AC','D01','DS Toko','Cabang','',dsShipment,'','','','','','','OTHER PIC','Proses']] : [[],headers]}]}
   if(suffix.includes('includeGridData'))return {sheets:[{data:[{rowData:[{values:[{dataValidation:{condition:{type:'ONE_OF_LIST',values:[{userEnteredValue:'08.00'}]},showCustomUi:true}}]}]}]}]}
   return {sheets:['REG','DS'].map((key,i)=>({properties:{title:`${key} ${missingToday ? '04' : '05'}/11`,sheetId:i+1,gridProperties:{rowCount:100}}}))}
  }
@@ -50,16 +50,32 @@ test('duplicate only missing daily tabs and delete rows 4 onward only in new cop
  assert.equal(planDailyTabs(withReg,'2026-11-05','2026-11-04')[0].requests.length,0)
  assert.throws(()=>planDailyTabs([],'2026-11-05','2026-11-04'),/kemarin/)
 })
-test('server checks all statuses and sources for duplicate shipments and appends after last shipment',async()=>{
+test('server appends all rows including existing DONE shipments and repeated CSV shipments',async()=>{
  const f=fixture();const result=await f.update(body([row('OLD'),row('NEW'),row('NEW')]),'PIC:TEST')
- assert.equal(result.inserted,1);assert.equal(result.ignored,2)
+ assert.equal(result.inserted,3);assert.equal(result.ignored,0)
  const cells=f.batch().requests.find(r=>r.updateCells).updateCells
  assert.equal(cells.range.startRowIndex,3)
+ assert.deepEqual(cells.rows.map(r=>r.values[6].userEnteredValue.stringValue),['OLD','NEW','NEW'])
  assert.equal(cells.rows[0].values[0].userEnteredValue.stringValue,'6281234567890')
  assert.equal(f.released(),true)
 })
-test('duplicates-only update never writes Sheets',async()=>{
- const f=fixture();assert.equal((await f.update(body([row('OLD')]),'PIC:TEST')).inserted,0);assert.equal(f.batch(),null)
+test('existing-only uploads are still appended, even when shipment is in the other source',async()=>{
+ const f=fixture({dsShipment:'CROSS'});const result=await f.update(body([row('OLD'),row('CROSS')]),'PIC:TEST')
+ assert.equal(result.inserted,2);assert.equal(result.ignored,0)
+ assert.deepEqual(f.batch().requests.find(r=>r.updateCells).updateCells.rows.map(r=>r.values[6].userEnteredValue.stringValue),['OLD','CROSS'])
+})
+test('DS updates also retain duplicates and existing shipments',async()=>{
+ const f=fixture({dsShipment:'DS-OLD'})
+ const dsRow={...row('DS-OLD'),source:'DS'}
+ const result=await f.update({...body([dsRow,dsRow]),source:'DS'},'PIC:TEST')
+ assert.equal(result.inserted,2);assert.equal(result.ignored,0)
+ const cells=f.batch().requests.find(r=>r.updateCells).updateCells
+ assert.equal(cells.range.sheetId,2)
+ assert.equal(cells.range.startRowIndex,3)
+ assert.equal(cells.rows.length,2)
+})
+test('whitespace shipment or store is rejected rather than pasted as an empty identity',async()=>{
+ for(const values of [{shipment:'   '},{kodeToko:'   '}]) {const f=fixture();await assert.rejects(()=>f.update(body([{...row(),...values}]),'PIC:TEST'),/Identitas/);assert.equal(f.batch(),null)}
 })
 test('concurrent import, wrong header, and historical date are rejected before writing',async()=>{
  for(const config of [{locked:true},{badHeader:true}]){const f=fixture(config);await assert.rejects(()=>f.update(body(),'PIC:TEST'));assert.equal(f.batch(),null)}

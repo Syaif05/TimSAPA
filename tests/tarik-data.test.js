@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { filterNewTarikRows, parseTarikCsv, tarikHtml, tarikTsv } from '../src/utils/tarikData.js'
+import { parseTarikCsv, tarikHtml, tarikTsv } from '../src/utils/tarikData.js'
 
 test('Data Studio CSV produces the required output order and REG/DS split', () => {
   const csv = 'store_code;store_name;am_name;ac_name;branch;regional;shipment_id;customer_name;sla_category\n1D92;TEMBESI 2;SAMUD;ANDI GUNAWAN;DC JAMBI;Reg 5 HSS;S-261101-AGVXZBH;FIRDHA;7. > 12 Jam\n2ABC;DS CIBODAS;DIKA;BUDI;DC JAKARTA;Reg 1;S-2;ANI;6. > 6 Jam'
@@ -24,15 +24,19 @@ test('contact lookup fills phone columns without changing raw AC and AM names', 
   assert.throws(() => parseTarikCsv('wrong;header\na;b'), /Kolom CSV tidak sesuai/)
 })
 
-test('only new shipments remain across PICs, statuses, sources and repeated CSV rows', () => {
-  const rows = [
-    { source:'REG', shipment:' S-OLD ' },
-    { source:'DS', shipment:'s-new' },
-    { source:'REG', shipment:'S-NEW' },
-    { source:'DS', shipment:'S-OTHER' },
+test('repeated shipments are retained in CSV order, in each category, and in both clipboard formats', () => {
+  const header='store_code;store_name;am_name;ac_name;branch;regional;shipment_id;customer_name;sla_category'
+  const lines=[
+    'A1;TOKO SATU;AM;AC;DC;REG;S-OLD;PERTAMA;1 Jam',
+    'A1;TOKO SATU;AM;AC;DC;REG;S-OLD;KEDUA;2 Jam',
+    'D1;DS CONTOH;AM;AC;DC;REG;S-OLD;KETIGA;3 Jam',
   ]
-  const result = filterNewTarikRows(rows, [{ shipment:'s-old', pic:'ANA', sheetStatus:'Done', source:'DS' }])
-  assert.deepEqual(result.fresh.map(row => row.shipment), ['s-new','S-OTHER'])
-  assert.deepEqual(result.duplicate.map(row => row.shipment), [' S-OLD ','S-NEW'])
-  assert.equal(tarikTsv(result.fresh).split('\n').length, 2)
+  const rows=parseTarikCsv([header,...lines].join('\n'))
+  assert.deepEqual(rows.map(r=>[r.source,r.shipment,r.namaKonsumen]),[['REG','S-OLD','PERTAMA'],['REG','S-OLD','KEDUA'],['DS','S-OLD','KETIGA']])
+  const reg=rows.filter(r=>r.source==='REG')
+  assert.equal(tarikTsv(reg).split('\n').length,2)
+  assert.equal((tarikHtml(reg).match(/<tr>/g)||[]).length,2)
+  assert.equal((tarikTsv(reg).match(/S-OLD/g)||[]).length,2)
+  assert.ok(tarikTsv(reg).indexOf('PERTAMA') < tarikTsv(reg).indexOf('KEDUA'))
+  assert.ok(!tarikHtml(reg).includes('<thead>'))
 })
