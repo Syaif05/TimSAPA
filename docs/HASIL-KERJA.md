@@ -8,7 +8,7 @@ Perbaikan 22 November 2026.
 - Hasil Kerja memakai seluruh snapshot Monitoring sebelum filter Antrean. PIC dan sumber dipilih sendiri pada Hasil Kerja.
 - Kelompok harus mempunyai Kendala, kondisi motor, Grouping, jumlah personil, dan nama pejabat yang sama (abaikan kapitalisasi dan spasi berlebih). Nilai kosong hanya bergabung dengan nilai kosong, bukan sebagai pengganti nilai terisi.
 - Shipment sama pada sumber/PIC yang sama dan isi laporan sama dihitung sekali. Urutan baris dan nomor baris spreadsheet tidak memengaruhi ceklis.
-- Urutan: belum dikumpulkan dahulu; motor BAIK, RUSAK, lalu lainnya; Grouping A–Z; personil numerik terbanyak; Kendala sebagai pemecah urutan.
+- Urutan: belum dikumpulkan dahulu; motor BAIK, RUSAK, lalu lainnya; personil numerik terbanyak; Grouping A–Z; Kendala sebagai pemecah urutan.
 
 ## Ceklis sepanjang hari
 

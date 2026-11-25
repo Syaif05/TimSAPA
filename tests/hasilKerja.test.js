@@ -46,10 +46,10 @@ test('checkmarks survive sorting, source filtering and duplicate rows; field edi
   assert.equal(group([rows[0],rows[0]])[0].rows.length,1)
   assert.equal(workProgress(group(rows,setWorkCollected(checks,rows,false))).completed,0)
 })
-test('ordering prioritizes unfinished, BAIK motor, grouping A-Z and largest personnel count', () => {
-  const rows = [row('DONE'), row('BAD',{kondisiMotor:'Rusak',grouping:'A'}),row('EMPTY',{kondisiMotor:'',grouping:'A'}),row('B',{grouping:'B',jumlahPersonil:'99'}),row('A3',{grouping:'A',jumlahPersonil:'3'}),row('A10',{grouping:'A',jumlahPersonil:'10'}),row('A0',{grouping:'A',jumlahPersonil:''})]
+test('ordering prioritizes unfinished, BAIK motor, largest personnel count then grouping A-Z', () => {
+  const rows = [row('DONE'), row('BAD',{kondisiMotor:'Rusak',grouping:'A'}),row('EMPTY',{kondisiMotor:'',grouping:'A'}),row('B',{grouping:'B',jumlahPersonil:'99'}),row('A3',{grouping:'A',jumlahPersonil:'3'}),row('A10',{grouping:'A',jumlahPersonil:'10'}),row('B10',{grouping:'B',jumlahPersonil:'10'}),row('A0',{grouping:'A',jumlahPersonil:''})]
   const groups = group(rows, setWorkCollected({}, [rows[0]], true))
-  assert.deepEqual(groups.map(g=>g.fields.shipment), ['A10','A3','A0','B','BAD','EMPTY','DONE'])
+  assert.deepEqual(groups.map(g=>g.fields.shipment), ['B','A10','B10','A3','A0','BAD','EMPTY','DONE'])
 })
 test('recap and progress use current groups and distinct shipments', () => {
   const rows = [row('S1'),row('S2',{kendala:'Motor rusak'}),row('S3',{kendala:''})]

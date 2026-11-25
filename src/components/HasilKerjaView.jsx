@@ -60,7 +60,7 @@ function WorkChecklist({ rows, date, scope, storage, defaultPic, defaultSource, 
       </div>
     </div>
     <div className="work-summary" aria-label="Ringkasan Hasil Kerja"><span><strong>{progress.shipments - progress.completedShipments}</strong> Shipment belum dikumpulkan</span><span><strong>{progress.completedShipments}</strong> sudah dikumpulkan</span><span>{groups.length} kelompok{checkedAt ? ` · Diperiksa ${checkedAt} WIB` : ''}</span></div>
-    <p className="work-sort-hint">Urutan: belum dikumpulkan → motor BAIK → Grouping A–Z → personil terbanyak. Ceklis berlaku sepanjang hari di perangkat ini, termasuk saat berganti filter.</p>
+    <p className="work-sort-hint">Urutan: belum dikumpulkan → motor BAIK → personil terbanyak → Grouping A–Z. Ceklis berlaku sepanjang hari di perangkat ini, termasuk saat berganti filter.</p>
     {error && <div className="work-sync-warning" role="alert"><AlertCircle size={18}/><div><strong>Data terbaru belum terverifikasi</strong><p>{error} Gunakan Perbarui data untuk mencoba kembali.</p></div></div>}
     <span className="sr-only" role="status">{notice}</span>
     {!visible.length && <div className="empty-panel work-empty"><CheckCircle2 size={30}/><h3>{busy && !groups.length ? 'Memeriksa pesanan DONE…' : error && !groups.length ? 'Data belum dapat dipastikan' : !groups.length ? 'Belum ada pesanan DONE untuk filter ini' : status === 'PENDING' ? 'Semua data sudah dikumpulkan' : 'Belum ada data yang dikumpulkan'}</h3><p>{!groups.length ? 'Periksa PIC, sumber, dan tanggal. Jika baru mengubah spreadsheet, tekan Perbarui data.' : 'Data baru akan muncul di bagian belum dikumpulkan.'}</p></div>}

@@ -52,8 +52,8 @@ export function groupWorkResults(rows = [], { pic = 'ALL', source = 'ALL', check
     }
   }).sort((a, b) => Number(a.collected) - Number(b.collected)
     || motorRank(a) - motorRank(b)
-    || compare(normalized(a.fields.grouping), normalized(b.fields.grouping))
     || personil(b.fields.jumlahPersonil) - personil(a.fields.jumlahPersonil)
+    || compare(normalized(a.fields.grouping), normalized(b.fields.grouping))
     || compare(normalized(a.fields.kendala), normalized(b.fields.kendala))
     || compare(a.key, b.key))
 }
