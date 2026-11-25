@@ -8,6 +8,31 @@ export function slaBucket(value) {
   if (/\b30\s*(?:menit|m)\b/.test(text)) return '30m'
   return ''
 }
+export const isUrgentSla = value => slaBucket(value) === '12h'
+export const urgentOrderCount = rows => (rows || []).filter(row => !isDoneOrder(row) && isUrgentSla(row.sla)).length
+
+export function normalizeMonitoringHour(value) {
+  const text = String(value ?? '').trim()
+  if (!text || text === '-') return ''
+  const match = text.match(/^(\d{1,2})(?:[.:](\d{2}))?(?:[.:]00)?$/)
+  if (!match || Number(match[1]) > 23 || Number(match[2] || 0) > 59) return text
+  return `${match[1].padStart(2, '0')}.${match[2] || '00'}`
+}
+const hourMinutes = value => {
+  const match = String(value).match(/^(\d{2})\.(\d{2})$/)
+  return match && Number(match[1]) < 24 && Number(match[2]) < 60 ? Number(match[1]) * 60 + Number(match[2]) : -1
+}
+export function monitoringHourOptions(groups) {
+  const counts = new Map()
+  for (const group of groups) for (const row of group.rows) {
+    if (isDoneOrder(row)) continue
+    const value = normalizeMonitoringHour(row.jam) || 'EMPTY'
+    counts.set(value, (counts.get(value) || 0) + 1)
+  }
+  return [...counts].map(([value, count]) => ({ value, label: value === 'EMPTY' ? 'JAM belum diisi' : value, count }))
+    .sort((a, b) => Number(a.value === 'EMPTY') - Number(b.value === 'EMPTY') || hourMinutes(b.value) - hourMinutes(a.value) || a.value.localeCompare(b.value, 'id'))
+}
+export const latestMonitoringHour = options => options.find(option => hourMinutes(option.value) >= 0)?.value || ''
 export function matchesSla(value, filter = 'ALL') {
   const bucket = slaBucket(value)
   return filter === 'ALL' || ({ CRITICAL: ['12h', '6h'], OVER_1_2: ['12h', '6h', '2h', '1h'], '12_JAM': ['12h'], '6_JAM': ['6h'], '2_JAM': ['2h'], '1_JAM': ['1h'], UNDER_1: ['45m', '30m'] }[filter] || []).includes(bucket)
@@ -15,22 +40,24 @@ export function matchesSla(value, filter = 'ALL') {
 export function filterMonitoringGroups(groups, filters = {}, search = '', statuses = {}) {
   const q = search.trim().toLowerCase()
   const any = value => !value || value === 'ALL'
+  const hour = filters.jam === 'LATEST' ? latestMonitoringHour(monitoringHourOptions(groups)) : normalizeMonitoringHour(filters.jam)
   return groups.flatMap(group => {
     if (!any(filters.status) && (statuses[group.acKey] || group.status || 'belum_dikerjakan') !== filters.status) return []
     const groupMatch = !q || String(group.acName || '').toLowerCase().includes(q) || String(group.phone || '').includes(q)
     const rows = group.rows.filter(row => !isDoneOrder(row)
       && (any(filters.pic) || String(row.pic || '').trim().toUpperCase() === filters.pic.trim().toUpperCase())
-      && (any(filters.jam) || row.jam === filters.jam)
+      && (any(filters.jam) || (hour === 'EMPTY' ? !normalizeMonitoringHour(row.jam) : Boolean(hour) && normalizeMonitoringHour(row.jam) === hour))
       && matchesSla(row.sla, filters.sla)
       && (groupMatch || [row.kodeToko, row.namaToko, row.shipment, row.namaAc, row.resolvedAcName].some(value => String(value || '').toLowerCase().includes(q))))
     if (!rows.length) return []
-    if (rows.length === group.rows.length) return [group]
+    const jam = [...new Set(rows.map(row => normalizeMonitoringHour(row.jam)).filter(Boolean))].sort().join(', ')
+    if (rows.length === group.rows.length && jam === group.jam) return [group]
     const storesList = [...new Map(rows.map(row => [row.kodeToko, `${row.kodeToko} - ${row.namaToko || ''}`])).values()]
     const slaBreakdown = {}
     rows.forEach(row => { const key = row.sla || 'Lainnya'; slaBreakdown[key] = (slaBreakdown[key] || 0) + 1 })
     const sources=[...new Set(rows.map(row=>row.source).filter(Boolean))].sort((a,b)=>sourcePriority(a)-sourcePriority(b))
-    return [{ ...group, sources, source:sources.length>1?'MIXED':sources[0]||group.source, rows, storesList, slaBreakdown, totalShipments: rows.length, totalStores: new Set(rows.map(row => row.kodeToko).filter(Boolean)).size }]
-  })
+    return [{ ...group, jam, sources, source:sources.length>1?'MIXED':sources[0]||group.source, rows, storesList, slaBreakdown, totalShipments: rows.length, totalStores: new Set(rows.map(row => row.kodeToko).filter(Boolean)).size }]
+  }).sort((a, b) => Number(urgentOrderCount(b.rows) > 0) - Number(urgentOrderCount(a.rows) > 0))
 }
 
 export const SHEET_COLUMNS = [

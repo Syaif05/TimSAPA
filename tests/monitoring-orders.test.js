@@ -57,8 +57,8 @@ test('message generation removes DONE shipments, store names, counts, and SLA su
 async function tableComponent() {
   const input = await readFile(new URL('../src/components/AcTableRender.jsx',import.meta.url),'utf8')
   let {code} = await transformWithOxc(input,'AcTableRender.jsx',{jsx:{runtime:'classic'}})
-  code = code.replace('"react"',JSON.stringify(import.meta.resolve('react')))
-  for (const file of ['orderState','tableSettings']) code = code.replace(`"../utils/${file}"`,JSON.stringify(new URL(`../src/utils/${file}.js`,import.meta.url).href))
+  for (const pkg of ['react','lucide-react']) code = code.replace(`"${pkg}"`,JSON.stringify(import.meta.resolve(pkg)))
+  for (const file of ['orderState','tableSettings','monitoringView']) code = code.replace(`"../utils/${file}"`,JSON.stringify(new URL(`../src/utils/${file}.js`,import.meta.url).href))
   return (await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)).AcTableRender
 }
 test('the actual PNG table DOM omits completed orders, including stale group totals', async () => {
@@ -127,4 +127,20 @@ test('explained DONE dropdown values are consistent in counts, queue, message an
   assert.ok(!renderTemplate('{daftar_shipment}',ac).includes(finished.shipment))
   const Table=await tableComponent()
   assert.ok(!renderToStaticMarkup(React.createElement(Table,{acGroup:ac})).includes(finished.shipment))
+})
+
+test('actual PNG table retains a strong 12h warning even with SLA column or highlights disabled', async () => {
+  const Table=await tableComponent()
+  const urgent={...rows[0],sla:'7. > 12 Jam'}
+  const group={acName:'AC PRIORITAS CONTOH',source:'REG',rows:[urgent,rows[1]],totalShipments:2}
+  const html=renderToStaticMarkup(React.createElement(Table,{acGroup:group,settings:{sla:{highlightEnabled:false}}}))
+  assert.match(html,/data-sla-priority="12h"/)
+  assert.match(html,/PRIORITAS UTAMA/)
+  assert.match(html,/1 pesanan · SEGERA DITANGANI/)
+  assert.match(html,/background-color:#b91c1c/)
+  assert.doesNotMatch(html,/S-DS-FINISHED/)
+  const hidden=renderToStaticMarkup(React.createElement(Table,{acGroup:group,settings:{showTitleBar:false,columns:{sla:{visible:false}}}}))
+  assert.match(hidden,/PRIORITAS UTAMA/)
+  const filtered=renderToStaticMarkup(React.createElement(Table,{acGroup:{...group,rows:[{...urgent,sla:'6. > 6 Jam'},rows[1]]}}))
+  assert.doesNotMatch(filtered,/data-sla-priority|PRIORITAS UTAMA/)
 })

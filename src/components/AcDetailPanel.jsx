@@ -1,8 +1,9 @@
 import { recordActivity } from '../utils/activityTracker'
 import { orderSetKey, reconcileOrderDraft } from '../utils/orderState'
+import { urgentOrderCount } from '../utils/monitoringView'
 import { OrderSheetEditor } from '../cloud/OrderSheetEditor'
 import React, { useState, useRef, useEffect, useMemo } from 'react'
-import { MessageSquare, Copy, Check, CheckCircle2, Clock3, Phone, Maximize2, RotateCcw, Save, ExternalLink, ChevronLeft, ChevronRight, Palette } from 'lucide-react'
+import { MessageSquare, Copy, Check, CheckCircle2, Clock3, Phone, Maximize2, RotateCcw, Save, ExternalLink, ChevronLeft, ChevronRight, Palette, Flame } from 'lucide-react'
 import { InfoButton } from './InfoButton'
 import { AcTableRender } from './AcTableRender'
 import { copyTableImageToClipboard, generateTableDataUrl } from '../utils/imageGenerator'
@@ -160,6 +161,7 @@ export function AcDetailPanel({
     applyTemplate(key)
   }
   const statusStyles = getStatusBadgeStyles(acGroup.status, statuses)
+  const urgentCount = urgentOrderCount(acGroup.rows)
   return (
     <section className={`chat-panel ${statusStyles.countsAsCompleted ? 'is-contacted' : statusStyles.id !== 'belum_dikerjakan' ? 'is-in-progress' : ''} ${acGroup.source ? `source-${acGroup.source.toLowerCase()}` : ''}`} data-source={acGroup.source || undefined} data-chat-color={statusStyles.color} aria-label={`Detail ${acGroup.acName}`}>
       <div className="chat-heading">
@@ -173,6 +175,7 @@ export function AcDetailPanel({
           <button className="icon-button" onClick={onNextAc} disabled={!hasNext} title="AC berikutnya" aria-label="AC berikutnya"><ChevronRight size={16}/></button>
         </div>}
       </div>
+      {urgentCount > 0 && <div className="chat-priority-notice"><Flame size={32} className="sla-flame"/><div><strong>PRIORITAS UTAMA · SLA &gt; 12 JAM</strong><span>{urgentCount} pesanan harus segera ditangani. Hubungi AC dan percepat tindak lanjut.</span></div></div>}
       <div className="chat-status-banner" role="status">
         {statusStyles.countsAsCompleted ? <CheckCircle2 size={21}/> : <Clock3 size={21}/>}
         <div><strong>{statusStyles.shortLabel}</strong><span>{statusStyles.countsAsCompleted ? 'Ditandai sudah ditindaklanjuti · status chat lokal' : statusStyles.id === 'belum_dikerjakan' ? 'Siapkan draf dan hubungi AC melalui WhatsApp.' : 'Pantau respons AC dan lanjutkan follow up sesuai kebutuhan.'}</span></div>

@@ -1,10 +1,10 @@
 import { acPhoneIdentity } from '../utils/acPhoneOverrides'
 import { OrderProgress } from './OrderProgress'
 import { isDoneOrder, orderSetKey } from '../utils/orderState'
-import { filterMonitoringGroups } from '../utils/monitoringView'
+import { filterMonitoringGroups, monitoringHourOptions, latestMonitoringHour, urgentOrderCount } from '../utils/monitoringView'
 import { usePicProfile } from '../profiles/ProfileContext'
 import React, { useState, useMemo, lazy, Suspense, useDeferredValue, useEffect, useRef } from 'react'
-import { Plus, FileSpreadsheet, LayoutGrid, Columns, Search, RotateCcw, Palette, Calendar, Trash2, CheckCircle2 } from 'lucide-react'
+import { Plus, FileSpreadsheet, LayoutGrid, Columns, Search, RotateCcw, Palette, Calendar, Trash2, CheckCircle2, Clock3, Flame } from 'lucide-react'
 import { WhatsAppConnection } from './WhatsAppConnection'
 import { AcDetailPanel } from './AcDetailPanel'
 import { AcListItem } from './AcListItem'
@@ -105,17 +105,9 @@ export function MonitoringWorkspace({
     return Array.from(set).sort()
   }, [acGroups, sheetRows])
 
-  const availableJams = useMemo(() => {
-    const set = new Set()
-    sheetRows.forEach(row => { if (row.jam && row.jam !== '-') set.add(row.jam) })
-    acGroups.forEach((g) => {
-      if (g.jam && g.jam !== '-') set.add(g.jam)
-      g.rows.forEach((r) => {
-        if (r.jam && r.jam !== '-') set.add(r.jam)
-      })
-    })
-    return Array.from(set).sort()
-  }, [acGroups, sheetRows])
+  const availableJams = useMemo(() => monitoringHourOptions(acGroups), [acGroups])
+  const latestJam = latestMonitoringHour(availableJams)
+  const selectedJamExists = ['ALL', 'LATEST'].includes(filters.jam) || availableJams.some(option => option.value === filters.jam)
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
@@ -124,16 +116,17 @@ export function MonitoringWorkspace({
 
   // Hitung jumlah AC per status
   const statusCounts = useMemo(() => {
-    const counts = { ALL: acGroups.length }
+    const matching = filterMonitoringGroups(acGroups, { ...filters, status: 'ALL' }, deferredSearch, sentStatusMap)
+    const counts = { ALL: matching.length }
     statuses.forEach((s) => {
       counts[s.id] = 0
     })
-    acGroups.forEach((g) => {
+    matching.forEach((g) => {
       const sId = sentStatusMap[g.acKey] || g.status || 'belum_dikerjakan'
       counts[sId] = (counts[sId] || 0) + 1
     })
     return counts
-  }, [acGroups, sentStatusMap, statuses])
+  }, [acGroups, filters, deferredSearch, sentStatusMap, statuses])
 
   // Both views operate on the same matching orders and regenerate group totals.
   const filteredAcGroups = useMemo(() => filterMonitoringGroups(acGroups, filters, deferredSearch, sentStatusMap), [acGroups, filters, deferredSearch, sentStatusMap])
@@ -156,6 +149,8 @@ export function MonitoringWorkspace({
     measure()
     return () => { observer.disconnect();window.removeEventListener('scroll',schedule);window.removeEventListener('resize',schedule);if(frame!==null)cancelAnimationFrame(frame) }
   }, [viewMode, filteredAcGroups.length])
+  const urgentCount = filteredAcGroups.reduce((total, group) => total + urgentOrderCount(group.rows), 0)
+  const visibleOrderCount = filteredAcGroups.reduce((total, group) => total + group.rows.length, 0)
   const contactedCount = filteredAcGroups.filter(group => getStatusById(group.status, statuses).countsAsCompleted).length
   const contactProgress = filteredAcGroups.length ? Math.round(contactedCount / filteredAcGroups.length * 100) : 0
 
@@ -248,13 +243,19 @@ export function MonitoringWorkspace({
             </>}
             <select className="clean-select" aria-label="Filter status" value={filters.status} onChange={e => handleFilterChange('status', e.target.value)}><option value="ALL">Status chat</option>{statuses.map(s => <option key={s.id} value={s.id}>{s.shortLabel || s.label} ({statusCounts[s.id] || 0})</option>)}</select>
             {!isLive && <select className="clean-select" aria-label="Filter PIC" value={filters.pic} onChange={e => handleFilterChange('pic', e.target.value)}><option value="ALL">PIC</option>{availablePics.map(p => <option key={p}>{p}</option>)}</select>}
-            <select className="clean-select" aria-label="Filter jam" value={filters.jam} onChange={e => handleFilterChange('jam', e.target.value)}><option value="ALL">Jam</option>{availableJams.map(j => <option key={j}>{j}</option>)}</select>
             <select className="clean-select" aria-label="Filter SLA" value={filters.sla} onChange={e => handleFilterChange('sla', e.target.value)}><option value="ALL">SLA</option><option value="CRITICAL">Kritis</option><option value="OVER_1_2">&gt; 1–2 jam</option><option value="12_JAM">&gt; 12 jam</option><option value="6_JAM">&gt; 6 jam</option><option value="2_JAM">&gt; 2 jam</option><option value="1_JAM">&gt; 1 jam</option></select>
             {(Object.values(filters).some(v => v !== 'ALL' && v !== '')) && <button className="icon-button" aria-label="Hapus filter" title="Hapus filter" onClick={() => { setFilters({search: '', pic: 'ALL', jam: 'ALL', sla: 'ALL', status: 'ALL'}); setSelectedAcKey(null) }}><RotateCcw size={14}/></button>}
           </div>
         </div>}
 
-        {viewMode === 'work' ? <HasilKerjaView key={`${isLive ? dataConnection?.mode : 'manual'}:${isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate}`} rows={sheetRows} date={isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate} scope={isLive ? dataConnection?.mode || 'daily' : 'manual'} storage={storage} defaultPic={isLive ? sheetPreferences?.pic : filters.pic} defaultSource={isLive ? sheetPreferences?.source : 'ALL'} showToast={showToast} connection={isLive ? dataConnection : undefined}/> : acGroups.length === 0 ? <div className="empty-panel"><FileSpreadsheet size={30} strokeWidth={1}/><h2>{isLive ? (dataConnection.snapshot ? 'Tidak ada pesanan untuk filter ini' : dataConnection.phase === 'error' ? 'Sumber belum bisa dibaca' : 'Menghubungkan Google Sheets…') : 'Belum ada data'}</h2>{isLive ? <span className="text-xs text-zinc-400">{dataConnection.snapshot ? 'Ubah PIC, sumber, atau status pesanan.' : 'Data manual tetap tersimpan terpisah.'}</span> : <div className="flex gap-2 flex-wrap justify-center"><button className="primary-button" onClick={() => setIsPasteModalOpen(true)}><Plus size={15}/>Input data</button><button className="secondary-button" onClick={handleLoadDemo}>Muat demo</button></div>}</div> : filteredAcGroups.length === 0 ? <div className="empty-panel"><Search size={28}/><h2>Tidak ada hasil</h2><span className="text-xs text-zinc-400">Sesuaikan pencarian atau filter.</span></div> : viewMode === 'split' ? (
+        {viewMode !== 'work' && <div className="queue-hour-toolbar">
+          <label className="queue-hour-filter"><Clock3 size={17}/><span>JAM monitoring <small>Kolom A spreadsheet</small></span><select aria-label="Filter jam" value={filters.jam} onChange={e => handleFilterChange('jam', e.target.value)}><option value="ALL">Semua JAM</option><option value="LATEST" disabled={!latestJam}>JAM terbaru{latestJam ? ` (${latestJam})` : ''}</option>{availableJams.map(option => <option key={option.value} value={option.value}>{option.label} · {option.count} pesanan</option>)}{!selectedJamExists && <option value={filters.jam}>{filters.jam} · tidak ada pesanan aktif</option>}</select></label>
+          <span className="queue-hour-summary" role="status">{visibleOrderCount} pesanan · {filteredAcGroups.length} AC{filters.jam === 'LATEST' && latestJam ? ` · JAM ${latestJam}` : ''}</span>
+          {urgentCount > 0 && <button type="button" className="queue-urgent-shortcut" onClick={() => handleFilterChange('sla', '12_JAM')}><Flame size={18} className="sla-flame"/>{urgentCount} pesanan &gt; 12 Jam · prioritaskan</button>}
+          {filters.jam === 'LATEST' && <p>Pilihan JAM terbaru mengikuti jam paling akhir yang tersedia saat data diperbarui.</p>}
+        </div>}
+
+        {viewMode === 'work' ? <HasilKerjaView key={`${isLive ? dataConnection?.mode : 'manual'}:${isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate}`} rows={sheetRows} date={isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate} scope={isLive ? dataConnection?.mode || 'daily' : 'manual'} storage={storage} defaultPic={isLive ? sheetPreferences?.pic : filters.pic} defaultSource={isLive ? sheetPreferences?.source : 'ALL'} showToast={showToast} connection={isLive ? dataConnection : undefined}/> : acGroups.length === 0 ? <div className="empty-panel"><FileSpreadsheet size={30} strokeWidth={1}/><h2>{isLive ? (dataConnection.snapshot ? 'Tidak ada pesanan untuk filter ini' : dataConnection.phase === 'error' ? 'Sumber belum bisa dibaca' : 'Menghubungkan Google Sheets…') : 'Belum ada data'}</h2>{isLive ? <span className="text-xs text-zinc-400">{dataConnection.snapshot ? 'Ubah PIC, sumber, atau status pesanan.' : 'Data manual tetap tersimpan terpisah.'}</span> : <div className="flex gap-2 flex-wrap justify-center"><button className="primary-button" onClick={() => setIsPasteModalOpen(true)}><Plus size={15}/>Input data</button><button className="secondary-button" onClick={handleLoadDemo}>Muat demo</button></div>}</div> : filteredAcGroups.length === 0 ? <div className="empty-panel"><Search size={28}/><h2>Tidak ada hasil</h2><span className="text-xs text-zinc-400">{filters.jam !== 'ALL' ? 'Tidak ada pesanan aktif yang cocok dengan JAM ini. Pilih JAM terbaru atau Semua JAM.' : 'Sesuaikan pencarian atau filter.'}</span></div> : viewMode === 'split' ? (
           <div className="workspace-split">
             <section ref={queueRef} className="queue-panel" aria-label="Antrean AC">
               <div className="queue-heading"><div><span className="queue-eyebrow">PROGRES FOLLOW UP</span><h2>Antrean AC</h2></div><span className="queue-total">{filteredAcGroups.length} AC</span></div>

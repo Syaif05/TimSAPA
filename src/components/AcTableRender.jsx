@@ -1,5 +1,7 @@
 import { activeOrderGroup } from '../utils/orderState'
+import { isUrgentSla, urgentOrderCount } from '../utils/monitoringView'
 import React, { forwardRef } from 'react'
+import { Flame } from 'lucide-react'
 import { DEFAULT_TABLE_SETTINGS } from '../utils/tableSettings'
 
 /**
@@ -19,6 +21,7 @@ export const AcTableRender = forwardRef(({ acGroup, settings: propSettings, show
   }
 
   const rows = acGroup?.rows || []
+  const urgentCount = urgentOrderCount(rows)
   const showTitleBar = propShowTitleBar !== undefined ? propShowTitleBar : s.showTitleBar
 
   // 1. Font Family
@@ -162,6 +165,10 @@ export const AcTableRender = forwardRef(({ acGroup, settings: propSettings, show
         overflow: 'hidden',
       }}
     >
+      {urgentCount > 0 && <div data-sla-priority="12h" style={{display:'flex',alignItems:'center',gap:'14px',padding:'14px 18px',marginBottom:'12px',border:'3px solid #9a3412',borderRadius:'8px',background:'linear-gradient(110deg,#991b1b,#c2410c)',color:'#ffffff',boxShadow:'inset 0 -4px 0 #fb923c'}}>
+        <Flame className="sla-flame" size={44} fill="#fb923c" stroke="#ffedd5" style={{flexShrink:0}}/>
+        <div><div style={{fontSize:'20px',fontWeight:900,letterSpacing:'.5px',lineHeight:1.3}}>PRIORITAS UTAMA · SLA &gt; 12 JAM</div><div style={{fontSize:'14px',fontWeight:700,marginTop:'4px'}}>{urgentCount} pesanan · SEGERA DITANGANI DAN DITINDAKLANJUTI</div></div>
+      </div>}
       {/* Pesan Banner Atas (Opsional Tambahan) */}
       {s.showTopBanner && s.topBannerText && (
         <div
@@ -298,7 +305,8 @@ export const AcTableRender = forwardRef(({ acGroup, settings: propSettings, show
         <tbody>
           {rows.map((row, idx) => {
             const isEven = idx % 2 === 0
-            const rowBg = isEven ? (s.colors.rowEvenBg || '#ffffff') : (s.colors.rowOddBg || '#fafafa')
+            const urgent = isUrgentSla(row.sla)
+            const rowBg = urgent ? '#fff1e6' : isEven ? (s.colors.rowEvenBg || '#ffffff') : (s.colors.rowOddBg || '#fafafa')
             const slaColor = getSlaColorInfo(row.sla)
 
             const tdStyle = {
@@ -312,7 +320,7 @@ export const AcTableRender = forwardRef(({ acGroup, settings: propSettings, show
             }
 
             return (
-              <tr key={row.id || idx} style={{ backgroundColor: rowBg }}>
+              <tr key={row.id || idx} data-sla-priority={urgent ? '12h' : undefined} style={{ backgroundColor: rowBg }}>
                 {/* Kode Toko */}
                 {cols.kodeToko?.visible && (
                   <td style={{ ...tdStyle, fontWeight: '700', whiteSpace: 'nowrap' }}>
@@ -348,11 +356,11 @@ export const AcTableRender = forwardRef(({ acGroup, settings: propSettings, show
                       ...tdStyle,
                       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                       fontWeight: '700',
-                      color: s.colors.shipmentColor || '#1e40af',
+                      color: urgent ? '#991b1b' : s.colors.shipmentColor || '#1e40af',
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    {row.shipment || '-'}
+                    {urgent && <Flame size={15} fill="#ea580c" stroke="#9a3412" style={{display:'inline-block',verticalAlign:'middle',marginRight:'5px'}}/>}{row.shipment || '-'}
                   </td>
                 )}
 
@@ -391,9 +399,10 @@ export const AcTableRender = forwardRef(({ acGroup, settings: propSettings, show
                             fontWeight: '700',
                           }
                         : {}),
+                      ...(urgent ? {backgroundColor:'#b91c1c',color:'#ffffff',fontWeight:900,border:'2px solid #7f1d1d'} : {}),
                     }}
                   >
-                    {s.sla.mode === 'badge_pill' ? (
+                    {urgent ? <span style={{display:'inline-flex',alignItems:'center',gap:'6px',fontWeight:900}}><Flame size={20} fill="#fb923c" stroke="#ffedd5"/><span>{row.sla || '7. > 12 Jam'}<small style={{display:'block',fontSize:'10px',marginTop:'3px',letterSpacing:'.4px'}}>SEGERA DITANGANI</small></span></span> : s.sla.mode === 'badge_pill' ? (
                       <span
                         style={{
                           display: 'inline-block',

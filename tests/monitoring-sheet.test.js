@@ -145,3 +145,52 @@ test('exported AC image table includes both DS and REG for one shared phone',asy
  assert.match(html,/TEST-DS-8/)
  assert.match(html,/TEST-REG-2/)
 })
+
+test('hour choices normalize column A, sort latest first and exclude completed-only hours', async () => {
+  const {monitoringHourOptions,latestMonitoringHour,normalizeMonitoringHour}=await import('../src/utils/monitoringView.js')
+  const options=monitoringHourOptions([{rows:[
+    {...rows[0],jam:'7:00'}, {...rows[0],jam:'07.00'}, {...rows[1],jam:'10:00:00'}, {...rows[1],jam:'9.00'}, {...rows[2],jam:'23.00'}, {...rows[1],jam:''},
+  ]}])
+  assert.deepEqual(options.map(o=>[o.value,o.count]),[['10.00',1],['09.00',1],['07.00',2],['EMPTY',1]])
+  assert.equal(latestMonitoringHour(options),'10.00')
+  assert.equal(latestMonitoringHour(monitoringHourOptions([{rows:[{...rows[0],jam:''}]}])), '')
+  assert.equal(normalizeMonitoringHour(' 07:00 '),'07.00')
+  assert.equal(normalizeMonitoringHour('7'),'07.00')
+  assert.equal(normalizeMonitoringHour('-'),'')
+  assert.equal(normalizeMonitoringHour('99:00'),'99:00')
+})
+test('JAM filtering controls merged DS/REG orders, draft, metadata and urgent priority without mutating source', async () => {
+  const {urgentOrderCount}=await import('../src/utils/monitoringView.js')
+  const mixed={...groups[0],source:'MIXED',jam:'07.00',rows:[{...rows[0],jam:'07.00'}, {...rows[1],source:'REG',jam:'08:00'}, {...rows[0],id:'u',jam:'08.00',shipment:'URGENT-08'}]}
+  const [eight]=filterMonitoringGroups([mixed],{jam:'08.00'})
+  assert.equal(eight.jam,'08.00')
+  assert.equal(eight.totalShipments,2)
+  assert.equal(eight.source,'MIXED')
+  assert.equal(urgentOrderCount(eight.rows),1)
+  const draft=renderTemplate('{total_shipment}|{daftar_shipment}',eight)
+  assert.match(draft,/URGENT-08/);assert.doesNotMatch(draft,/TEST-DS-8/)
+  assert.equal(filterMonitoringGroups([mixed],{jam:'7:00'})[0].totalShipments,1)
+  assert.equal(mixed.rows.length,3)
+  const normal={...groups[1],rows:[{...rows[3],jam:'08.00'}]}
+  assert.equal(filterMonitoringGroups([normal,mixed],{jam:'08.00'})[0].acKey,mixed.acKey)
+  assert.equal(filterMonitoringGroups([mixed],{jam:'EMPTY'}).length,0)
+})
+test('LATEST follows incoming hour and fixed old hour stays empty when processed or removed', () => {
+  const initial={...groups[0],rows:[{...rows[0],jam:'08.00'}]}
+  assert.equal(filterMonitoringGroups([initial],{jam:'LATEST'})[0].jam,'08.00')
+  const updated={...initial,rows:[...initial.rows,{...rows[1],jam:'09:00',shipment:'NEW-HOUR'}, {...rows[2],jam:'10.00'}]}
+  assert.deepEqual(filterMonitoringGroups([updated],{jam:'LATEST'})[0].rows.map(r=>r.shipment),['NEW-HOUR'])
+  assert.equal(filterMonitoringGroups([{...updated,rows:updated.rows.slice(1)}],{jam:'08.00'}).length,0)
+  assert.equal(filterMonitoringGroups([{...initial,rows:initial.rows.map(r=>({...r,sheetStatus:'Done (Sudah dihubungi)'}))}],{jam:'LATEST'}).length,0)
+})
+
+test('priority flames are based only on displayed active 12h orders; 6h and stale DONE breakdown do not trigger', async () => {
+  const {AcListItem}=await import(await moduleUrl('../src/components/AcListItem.jsx'))
+  const critical={...groups[0],rows:[rows[0]],slaBreakdown:{},status:'belum_dikerjakan'}
+  const urgent=renderToStaticMarkup(React.createElement(AcListItem,{acGroup:critical,onClick:()=>{}}))
+  assert.match(urgent,/is-sla-urgent/);assert.match(urgent,/PRIORITAS UTAMA/)
+  for(const active of [{...rows[0],sla:'6. > 6 Jam'},{...rows[0],sheetStatus:'Done (Sudah dihubungi)'}]) {
+    const safe=renderToStaticMarkup(React.createElement(AcListItem,{acGroup:{...critical,rows:[active],slaBreakdown:{'7. > 12 Jam':1}},onClick:()=>{}}))
+    assert.doesNotMatch(safe,/is-sla-urgent|PRIORITAS UTAMA/)
+  }
+})

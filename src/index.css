@@ -686,3 +686,33 @@ button { cursor: pointer; }
 .work-sync-warning p { color:inherit; }
 .work-empty { min-height:200px; padding:24px; }
 @media(max-width:480px) { .work-results-filters { width:100%; gap:8px; }.work-results-filters label { flex:1; min-width:120px; }.work-check { padding:8px; font-size:12px; min-height:44px; }.work-result-field dt { font-size:12px; }.work-result-field dd,.work-copy-text,.work-badge,.work-grouping { font-size:14px; } }
+
+/* Operational hour filter and the highest-priority >12 hour shipments. */
+.queue-hour-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:10px 16px; padding:12px 20px; border-bottom:1px solid var(--line); background:var(--soft); }
+.queue-hour-filter { display:flex; align-items:center; gap:9px; color:var(--ink); }
+.queue-hour-filter >svg { color:var(--muted); flex-shrink:0; }
+.queue-hour-filter >span { font-size:12px; font-weight:750; }
+.queue-hour-filter small { display:block; font-size:9px; font-weight:500; color:var(--muted); margin-top:2px; }
+.queue-hour-filter select { min-height:40px; max-width:260px; padding:8px 12px; border:1.5px solid var(--line); border-radius:9px; background:var(--panel); color:var(--ink); font-size:12px; font-weight:650; }
+.queue-hour-filter select:focus-visible { outline:2px solid var(--accent-ink); outline-offset:2px; }
+.queue-hour-summary { font-size:11px; color:var(--muted); }
+.queue-hour-toolbar >p { flex-basis:100%; font-size:10px; line-height:1.5; color:var(--muted); }
+.queue-urgent-shortcut { display:flex; align-items:center; gap:7px; margin-left:auto; padding:8px 11px; border:1px solid #c2410c; border-radius:8px; background:#fff1e6; color:#9a3412; font-size:11px; font-weight:750; }
+.queue-urgent-shortcut:focus-visible { outline:2px solid #9a3412; outline-offset:3px; }
+.queue-list .ac-list-row.is-sla-urgent { border:2px solid #ea580c; border-left:5px solid #b91c1c; background:linear-gradient(115deg,#fff1e6,var(--panel)); box-shadow:0 0 0 2px #fb923c22,0 3px 13px #c2410c22; }
+.queue-list .ac-list-row.is-sla-urgent.selected { outline-color:#c2410c; }
+.queue-list .is-sla-urgent .ac-avatar { background:#ffedd5; color:#9a3412; }
+.queue-urgent-badge { display:flex; align-items:center; flex-wrap:wrap; gap:4px 6px; width:fit-content; padding:7px 8px; border-radius:7px; background:linear-gradient(105deg,#991b1b,#c2410c); color:#fff; font-size:11px; font-weight:800; line-height:1.4; }
+.queue-urgent-badge >span { flex-basis:100%; font-size:9px; letter-spacing:.7px; color:#ffedd5; }
+.chat-priority-notice { display:flex; align-items:center; gap:13px; margin:0 20px 15px; padding:16px; border:2px solid #9a3412; border-radius:11px; background:linear-gradient(110deg,#991b1b,#c2410c); color:white; box-shadow:inset 0 -3px 0 #fb923c; }
+.chat-priority-notice >svg { flex-shrink:0; fill:#fb923c; stroke:#ffedd5; }
+.chat-priority-notice >div { display:grid; gap:5px; }
+.chat-priority-notice strong { font-size:15px; font-weight:850; letter-spacing:.4px; line-height:1.45; }
+.chat-priority-notice span { font-size:12px; line-height:1.6; }
+.sla-flame { transform-origin:50% 90%; animation:sla-flame-glow 2.6s ease-in-out infinite; }
+@keyframes sla-flame-glow { 0%,100% { transform:scale(.96) rotate(-3deg); filter:drop-shadow(0 0 1px #fb923c66); } 50% { transform:scale(1.09) rotate(3deg); filter:drop-shadow(0 -2px 5px #fb923c99); } }
+.dark .queue-list .ac-list-row.is-sla-urgent { background:linear-gradient(115deg,#431407,var(--panel)); border-color:#f97316; }
+.dark .queue-list .is-sla-urgent .ac-avatar { background:#7c2d12; color:#ffedd5; }
+.dark .queue-urgent-shortcut { background:#431407; color:#ffedd5; border-color:#f97316; }
+@media(max-width:800px) { .queue-hour-toolbar { padding:10px 12px; gap:9px; }.queue-hour-filter { flex:1 1 100%; }.queue-hour-filter select { flex:1; min-width:0; max-width:none; }.queue-urgent-shortcut { margin-left:0; font-size:10px; }.chat-priority-notice { margin:0 14px 14px; padding:12px; gap:9px; }.chat-priority-notice strong { font-size:13px; }.chat-priority-notice span { font-size:11px; }.queue-list .ac-list-row.is-sla-urgent { min-height:190px; } }
+@media(prefers-reduced-motion:reduce) { .sla-flame { animation:none; filter:none; } }
