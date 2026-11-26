@@ -1,3 +1,6 @@
+import { FOLLOW_UP_FIELDS } from '../src/utils/smartSheet.js'
+import { withSheetWriteLock } from './sheetWriteLock.js'
+import { createFollowUpSync, followUpColumns } from './followUpSync.js'
 import { createHash } from 'node:crypto'
 import { parseMonitoringValues } from '../src/utils/sheetsParser.js'
 import { CONTACTS_SOURCE, dailySheetTitle, jakartaDate, LINKED_SHEET_DATE, SHEET_SOURCES, SPREADSHEET_ID } from '../src/utils/sheetsConfig.js'
@@ -69,13 +72,13 @@ export function createGoogleSheetsApi({ database, googleRequest, now = () => Dat
       return { sourceId: source.id, sheet: source.sheet, contacts: rows, fetchedAt: new Date(now()).toISOString(), revision: hash(rows), transport: 'google-api' }
     }, force)
   }
-  // Only these two columns can be changed. Headers are resolved afresh before each write.
-  async function updateOrder(body, actor) {
+  // Only follow-up fields can be changed. Headers are resolved afresh before each write.
+  async function updateOrderUnlocked(body, actor, markUncertain) {
     const { source, date, mode, sheetRow, shipment, store, changes, expected } = body
     if (!['REG', 'DS'].includes(source) || !['daily', 'linked'].includes(mode) || !Number.isSafeInteger(sheetRow) || sheetRow < 2 || sheetRow > 200000 || typeof shipment !== 'string' || typeof store !== 'string') throw httpError(400, 'Identitas pesanan tidak valid.')
     dailySheetTitle(source, date)
-    if (!changes || !expected || Object.keys(changes).length < 1 || Object.keys(changes).some(k => !['sheetStatus', 'kendala'].includes(k))) throw httpError(400, 'Kolom perubahan tidak diizinkan.')
-    for (const [key, value] of Object.entries(changes)) if (typeof value !== 'string' || value.length > (key === 'sheetStatus' ? 80 : 2000) || typeof expected[key] !== 'string') throw httpError(400, 'Isi perubahan tidak valid.')
+    if (!changes || !expected || Object.keys(changes).length < 1 || Object.keys(changes).some(k => !FOLLOW_UP_FIELDS.some(field => field.key === k))) throw httpError(400, 'Kolom perubahan tidak diizinkan.')
+    for (const [key, value] of Object.entries(changes)) if (typeof value !== 'string' || value.length > FOLLOW_UP_FIELDS.find(field => field.key === key).max || typeof expected[key] !== 'string') throw httpError(400, 'Isi perubahan tidak valid.')
     const fresh = await monitoring({ mode, date, force: true })
     if (fresh.stale) throw httpError(503, 'Data terbaru belum dapat diperiksa. Perubahan belum dikirim.')
     if (fresh.date !== date) throw httpError(400, 'Tanggal pesanan tidak sesuai dengan tab sumber.')
@@ -85,16 +88,23 @@ export function createGoogleSheetsApi({ database, googleRequest, now = () => Dat
     const headerData = await googleRequest(SPREADSHEET_ID, `/values/${encodeURIComponent(`${quote(row.sheetTitle)}!A1:V25`)}?valueRenderOption=FORMATTED_VALUE`)
     const header = headerData.values?.find(cells => cells.some(c => String(c).trim().toLowerCase() === 'shipment') && cells.some(c => String(c).trim().toLowerCase() === 'status'))
     if (!header) throw httpError(409, 'Struktur kolom berubah. Perubahan dibatalkan.')
-    const labels = { sheetStatus: 'status', kendala: 'kendala' }
+    const columns = followUpColumns(header)
+    const target = await googleRequest(SPREADSHEET_ID, `/values/${encodeURIComponent(`${quote(row.sheetTitle)}!A${sheetRow}:V${sheetRow}`)}?valueRenderOption=FORMULA`)
+    const cells = target.values?.[0] || []
+    const names = header.map(cell => String(cell).trim().toLowerCase().replace(/[\s_-]/g, ''))
+    if (String(cells[names.indexOf('shipment')] || '').trim() !== shipment || String(cells[names.indexOf('kodetoko')] || '').trim() !== store) throw httpError(409, 'Posisi pesanan berubah. Sinkronkan lalu coba lagi.')
     const updates = Object.entries(changes).map(([key, value]) => {
-      const col = header.findIndex(cell => String(cell).trim().toLowerCase() === labels[key])
-      if (col < 0 || col >= 22) throw httpError(409, 'Kolom tujuan tidak ditemukan.')
+      const col = columns[key]
+      const actual = String(cells[col] ?? '').trim()
+      if (actual.startsWith('=') || actual !== expected[key]) throw httpError(409, 'Sel berisi rumus atau baru diubah. Perubahan dibatalkan; perbarui data.')
       return { range: `${quote(row.sheetTitle)}!${String.fromCharCode(65 + col)}${sheetRow}`, values: [[value]] }
     })
     const audit = (await database('sapa_sheet_audit', { method: 'POST', body: { actor, source, sheet_date: date, shipment, sheet_row: sheetRow, before_value: Object.fromEntries(Object.keys(changes).map(k => [k, row[k] || ''])), after_value: changes, outcome: 'pending' } }))[0]
     if (!audit?.id) throw httpError(503, 'Riwayat perubahan belum dapat disimpan. Perubahan dibatalkan.')
     try {
+      markUncertain(true)
       await googleRequest(SPREADSHEET_ID, '/values:batchUpdate', { method: 'POST', body: { valueInputOption: 'RAW', data: updates } })
+      markUncertain(false)
     } catch (error) {
       await database(queryPath('sapa_sheet_audit', { id: `eq.${audit.id}` }), { method: 'PATCH', body: { outcome: 'uncertain' } }).catch(() => {})
       throw error
@@ -107,5 +117,10 @@ export function createGoogleSheetsApi({ database, googleRequest, now = () => Dat
     await database(queryPath('sapa_sheet_audit', { id: `eq.${audit.id}` }), { method: 'PATCH', body: { outcome: 'completed' } })
     return { saved: true }
   }
-  return { monitoring, contacts, updateOrder }
+  const updateOrder = (body, actor) => withSheetWriteLock(database, now, markUncertain => updateOrderUnlocked(body, actor, markUncertain))
+  const carryForward = createFollowUpSync({ monitoring, googleRequest, database, now, invalidate: async (mode, date) => {
+    memory.clear()
+    await database(queryPath('sapa_source_cache', { cache_key: `eq.monitoring:${mode}:${date}` }), { method: 'DELETE' })
+  } })
+  return { monitoring, contacts, updateOrder, carryForward }
 }

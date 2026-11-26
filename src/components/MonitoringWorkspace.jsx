@@ -12,6 +12,7 @@ import { AcCard } from './AcCard'
 const PasteInputModal = lazy(() => import('./PasteInputModal').then(m => ({ default: m.PasteInputModal })))
 const ImagePreviewModal = lazy(() => import('./ImagePreviewModal').then(m => ({ default: m.ImagePreviewModal })))
 import { HasilKerjaView } from './HasilKerjaView'
+const SmartMonitoringSheet = lazy(() => import('./SmartMonitoringSheet').then(m => ({ default: m.SmartMonitoringSheet })))
 import { MonitoringTools } from './MonitoringTools'
 import { SheetsConnection } from './SheetsConnection'
 import { SAMPLE_SAPA_TSV } from '../utils/sampleSapaData'
@@ -55,7 +56,7 @@ export function MonitoringWorkspace({
   const isPasteModalOpen = externalPasteOpen !== undefined ? externalPasteOpen : internalPasteOpen
   const setIsPasteModalOpen = externalSetPasteOpen || setInternalPasteOpen
   const { storage } = usePicProfile()
-  const [viewMode, setViewMode] = useState(() => { try { const saved = storage.getItem('sapa_monitoring_view'); return ['split','grid','work'].includes(saved) ? saved : 'split' } catch { return 'split' } })
+  const [viewMode, setViewMode] = useState(() => { try { const saved = storage.getItem('sapa_monitoring_view'); return ['split','grid','smart','work'].includes(saved) ? saved : 'split' } catch { return 'split' } })
   useEffect(() => { try { storage.setItem('sapa_monitoring_view', viewMode) } catch {} }, [viewMode, storage])
   const [selectedAcKey, setSelectedAcKey] = useState(null)
   const [selectedAcIdentity, setSelectedAcIdentity] = useState(null)
@@ -222,6 +223,7 @@ export function MonitoringWorkspace({
             {isArchiveMode && <span className="tiny-badge">Arsip</span>}</>}</div>
             <div className="monitoring-view-toggle" role="group" aria-label="Pilihan tampilan monitoring">
               <button className={['split','grid'].includes(viewMode) ? 'active' : ''} aria-pressed={['split','grid'].includes(viewMode)} onClick={() => setViewMode('split')}><Columns size={14}/>Antrean</button>
+              <button className={viewMode === 'smart' ? 'active' : ''} aria-pressed={viewMode === 'smart'} onClick={() => setViewMode('smart')}><FileSpreadsheet size={14}/>Spreadsheet Pintar</button>
               <button className={viewMode === 'work' ? 'active' : ''} aria-pressed={viewMode === 'work'} onClick={() => setViewMode('work')}><CheckCircle2 size={14}/>Hasil Kerja</button>
             </div>
           </div>
@@ -233,7 +235,7 @@ export function MonitoringWorkspace({
           </div>
         </div>
 
-        {viewMode !== 'work' && <div className="filter-bar">
+        {['split','grid'].includes(viewMode) && <div className="filter-bar">
           <label className="search-field"><Search size={16}/><input aria-label="Cari AC, toko, atau shipment" placeholder="Cari AC, toko, shipment…" value={filters.search} onChange={e => handleFilterChange('search', e.target.value)}/></label>
           <div className="filter-selects">
             {isLive && <>
@@ -248,14 +250,14 @@ export function MonitoringWorkspace({
           </div>
         </div>}
 
-        {viewMode !== 'work' && <div className="queue-hour-toolbar">
+        {['split','grid'].includes(viewMode) && <div className="queue-hour-toolbar">
           <label className="queue-hour-filter"><Clock3 size={17}/><span>JAM monitoring <small>Kolom A spreadsheet</small></span><select aria-label="Filter jam" value={filters.jam} onChange={e => handleFilterChange('jam', e.target.value)}><option value="ALL">Semua JAM</option><option value="LATEST" disabled={!latestJam}>JAM terbaru{latestJam ? ` (${latestJam})` : ''}</option>{availableJams.map(option => <option key={option.value} value={option.value}>{option.label} · {option.count} pesanan</option>)}{!selectedJamExists && <option value={filters.jam}>{filters.jam} · tidak ada pesanan aktif</option>}</select></label>
           <span className="queue-hour-summary" role="status">{visibleOrderCount} pesanan · {filteredAcGroups.length} AC{filters.jam === 'LATEST' && latestJam ? ` · JAM ${latestJam}` : ''}</span>
           {urgentCount > 0 && <button type="button" className="queue-urgent-shortcut" onClick={() => handleFilterChange('sla', '12_JAM')}><Flame size={18} className="sla-flame"/>{urgentCount} pesanan &gt; 12 Jam · prioritaskan</button>}
           {filters.jam === 'LATEST' && <p>Pilihan JAM terbaru mengikuti jam paling akhir yang tersedia saat data diperbarui.</p>}
         </div>}
 
-        {viewMode === 'work' ? <HasilKerjaView key={`${isLive ? dataConnection?.mode : 'manual'}:${isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate}`} rows={sheetRows} date={isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate} scope={isLive ? dataConnection?.mode || 'daily' : 'manual'} storage={storage} defaultPic={isLive ? sheetPreferences?.pic : filters.pic} defaultSource={isLive ? sheetPreferences?.source : 'ALL'} showToast={showToast} connection={isLive ? dataConnection : undefined}/> : acGroups.length === 0 ? <div className="empty-panel"><FileSpreadsheet size={30} strokeWidth={1}/><h2>{isLive ? (dataConnection.snapshot ? 'Tidak ada pesanan untuk filter ini' : dataConnection.phase === 'error' ? 'Sumber belum bisa dibaca' : 'Menghubungkan Google Sheets…') : 'Belum ada data'}</h2>{isLive ? <span className="text-xs text-zinc-400">{dataConnection.snapshot ? 'Ubah PIC, sumber, atau status pesanan.' : 'Data manual tetap tersimpan terpisah.'}</span> : <div className="flex gap-2 flex-wrap justify-center"><button className="primary-button" onClick={() => setIsPasteModalOpen(true)}><Plus size={15}/>Input data</button><button className="secondary-button" onClick={handleLoadDemo}>Muat demo</button></div>}</div> : filteredAcGroups.length === 0 ? <div className="empty-panel"><Search size={28}/><h2>Tidak ada hasil</h2><span className="text-xs text-zinc-400">{filters.jam !== 'ALL' ? 'Tidak ada pesanan aktif yang cocok dengan JAM ini. Pilih JAM terbaru atau Semua JAM.' : 'Sesuaikan pencarian atau filter.'}</span></div> : viewMode === 'split' ? (
+        {viewMode === 'smart' ? <Suspense fallback={<div className="empty-panel">Memuat Spreadsheet Pintar…</div>}><SmartMonitoringSheet key={`${isLive ? dataConnection?.mode : 'manual'}:${dataConnection?.snapshot?.date || selectedDate}`} rows={sheetRows} connection={isLive ? dataConnection : undefined} date={dataConnection?.snapshot?.date || selectedDate} defaultSource={sheetPreferences?.source || 'ALL'} showToast={showToast}/></Suspense> : viewMode === 'work' ? <HasilKerjaView key={`${isLive ? dataConnection?.mode : 'manual'}:${isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate}`} rows={sheetRows} date={isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate} scope={isLive ? dataConnection?.mode || 'daily' : 'manual'} storage={storage} defaultPic={isLive ? sheetPreferences?.pic : filters.pic} defaultSource={isLive ? sheetPreferences?.source : 'ALL'} showToast={showToast} connection={isLive ? dataConnection : undefined}/> : acGroups.length === 0 ? <div className="empty-panel"><FileSpreadsheet size={30} strokeWidth={1}/><h2>{isLive ? (dataConnection.snapshot ? 'Tidak ada pesanan untuk filter ini' : dataConnection.phase === 'error' ? 'Sumber belum bisa dibaca' : 'Menghubungkan Google Sheets…') : 'Belum ada data'}</h2>{isLive ? <span className="text-xs text-zinc-400">{dataConnection.snapshot ? 'Ubah PIC, sumber, atau status pesanan.' : 'Data manual tetap tersimpan terpisah.'}</span> : <div className="flex gap-2 flex-wrap justify-center"><button className="primary-button" onClick={() => setIsPasteModalOpen(true)}><Plus size={15}/>Input data</button><button className="secondary-button" onClick={handleLoadDemo}>Muat demo</button></div>}</div> : filteredAcGroups.length === 0 ? <div className="empty-panel"><Search size={28}/><h2>Tidak ada hasil</h2><span className="text-xs text-zinc-400">{filters.jam !== 'ALL' ? 'Tidak ada pesanan aktif yang cocok dengan JAM ini. Pilih JAM terbaru atau Semua JAM.' : 'Sesuaikan pencarian atau filter.'}</span></div> : viewMode === 'split' ? (
           <div className="workspace-split">
             <section ref={queueRef} className="queue-panel" aria-label="Antrean AC">
               <div className="queue-heading"><div><span className="queue-eyebrow">PROGRES FOLLOW UP</span><h2>Antrean AC</h2></div><span className="queue-total">{filteredAcGroups.length} AC</span></div>

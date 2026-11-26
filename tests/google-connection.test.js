@@ -24,12 +24,14 @@ function memoryDatabase() {
     const rows = tables.get(table) || []; tables.set(table, rows)
     const matches = row => [...q.entries()].every(([key, match]) => {
       if (['select', 'order', 'limit', 'on_conflict'].includes(key)) return true
+      if (key === 'snapshot->>token') return row.snapshot?.token === match.slice(3)
       if (match === 'not.is.null') return row[key] != null
       const i = match.indexOf('.'); const op = match.slice(0, i); const value = match.slice(i + 1)
       return op === 'like' ? String(row[key]).startsWith(value.replace(/\*$/, '')) : op === 'eq' ? String(row[key]) === value : op === 'gt' ? row[key] > value : op === 'lt' ? row[key] < value : false
     })
     if (options.method === 'POST') {
       const previous = keys[table] && rows.find(r => r[keys[table]] === options.body[keys[table]])
+      if (previous && options.prefer?.includes('ignore-duplicates')) return []
       if (previous) { Object.assign(previous, structuredClone(options.body)); return [structuredClone(previous)] }
       const row = { id: ++id, ...structuredClone(options.body) }; rows.push(row); return [structuredClone(row)]
     }
@@ -242,6 +244,7 @@ function sheetsFixture() {
     if (options.method === 'POST') { writes.push(options.body); return { totalUpdatedCells: 2 } }
     if (suffix.startsWith('?fields=')) return { sheets: ['REG', 'DS'].map((key, i) => ({ properties: { sheetId: i + 1, title: `${key} 01/11` } })) }
     if (suffix.startsWith('/values:batchGet')) return { valueRanges: [{ values: [header, cells] }, { values: [header, cells] }] }
+    if (suffix.includes('valueRenderOption=FORMULA')) return { values: [cells] }
     return { values: [header] }
   }
   const api = createGoogleSheetsApi({ database, googleRequest, now: () => clock })
@@ -276,6 +279,25 @@ test('order edit checks row identity, expected values and column whitelist; send
   const audit = f.database.tables.get('sapa_sheet_audit')[0]
   assert.equal(audit.outcome, 'completed'); assert.equal(audit.actor, 'PIC:PIC TEST')
   assert.equal(f.database.tables.get('sapa_source_cache').length, 0)
+})
+
+test('six follow-up fields save only P:U; formula targets and stale values are blocked', async () => {
+  const f = sheetsFixture()
+  const changes = { sheetStatus: 'Done', kondisiMotor: 'Rusak', jumlahPersonil: '5', namaPejabat: 'Pejabat QA', kendala: 'Catatan baru', grouping: 'Motor Bermasalah' }
+  const body = { source: 'DS', date: '2026-11-01', mode: 'daily', sheetRow: 2, shipment: 'TEST-SHIP', store: 'TEST1', changes, expected: { sheetStatus: 'Proses', kondisiMotor: '', jumlahPersonil: '', namaPejabat: '', kendala: 'Catatan awal', grouping: '' } }
+  await f.api.updateOrder(body, 'PIC:PIC TEST')
+  assert.deepEqual(f.writes[0].data.map(item => item.range), ['P','Q','R','S','T','U'].map(col => `'DS 01/11'!${col}2`))
+  assert.equal(f.writes[0].valueInputOption, 'RAW')
+  for (const target of ['=IF(TRUE,"","")', 'Baru diisi orang lain']) {
+    const other = sheetsFixture()
+    const api = createGoogleSheetsApi({ database: other.database, googleRequest: async (id, suffix, options) => {
+      if (suffix.includes('valueRenderOption=FORMULA')) { const changed = [...cells]; changed[16] = target; return { values: [changed] } }
+      return other.googleRequest(id, suffix, options)
+    }, now: () => time })
+    await assert.rejects(api.updateOrder(body, 'PIC:PIC TEST'), { status: 409 })
+    assert.equal(other.writes.length, 0)
+    assert.equal(other.database.tables.get('sapa_source_cache').some(r => r.cache_key.startsWith('lock:')), false)
+  }
 })
 
 test('report designs are shared across PICs and latest explicit save wins', async () => {
@@ -344,7 +366,7 @@ function seedGoogleConnection(database, tokens) {
 const fakeSheetsResponse = url => Response.json(url.includes('?fields=')
   ? {sheets:['REG','DS'].map((key,i)=>({properties:{sheetId:i+1,title:`${key} 01/11`}}))}
   : url.includes('/values:batchGet') ? {valueRanges:[{values:[header,cells]},{values:[header,cells]}]}
-  : {values:[header]})
+  : {values:[url.includes('valueRenderOption=FORMULA') ? cells : header]})
 
 test('overnight refresh is coalesced, encrypted and reused across cold server instances; rotated refresh token survives', async () => {
   let clock = time, refreshes = 0

@@ -257,7 +257,7 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
           const body = await bodyOf(request)
           const pic = String(body.pic || '').trim().replace(/\s+/g, ' ').toUpperCase()
           if (!pic || pic.length > 80 || !(await database(queryPath('sapa_pic_profiles', { name: `eq.${pic}`, select: 'name' }))).length) throw httpError(403, 'Pilih PIC yang terdaftar sebelum mengubah pesanan.')
-          return json(await sheets.updateOrder(body, `PIC:${pic}`))
+          return json(await (body.action === 'carry-forward' ? sheets.carryForward(body, `PIC:${pic}`) : sheets.updateOrder(body, `PIC:${pic}`)))
         }
         if (path === '/api/sheets' && request.method === 'GET') {
           const data = await sheets.monitoring({ mode: url.searchParams.get('mode') || 'daily', date: url.searchParams.get('date') || undefined, force: url.searchParams.get('fresh') === '1' })
