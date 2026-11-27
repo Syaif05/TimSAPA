@@ -196,29 +196,35 @@ test('native contact source can only be changed by admin with valid ID and tab n
   assert.equal(status.contactsSpreadsheetId, body.contactsSpreadsheetId)
   assert.equal((await (await app.handle(req('/api/session'))).json()).contactsSpreadsheetId, undefined)
 })
-test('configured legacy contacts file uses Excel reader even when its ID is saved', async () => {
+test('contacts GET reads permanent Supabase data with Google disabled and supports ETag', async () => {
   const database = memoryDatabase()
-  Object.assign(database.tables.get('sapa_source_settings')[0], { contacts_spreadsheet_id: CONTACTS_SOURCE.id, contacts_sheet: CONTACTS_SOURCE.sheet })
-  database.tables.set('sapa_google_connection', [{ id:'main', email:'admin@example.com', encrypted_tokens:'unused', updated_at:new Date(time).toISOString() }])
-  const contact = { store:'1D92', acName:'ANDI GUNAWAN', cugAc:'6281234567890', cugAm:'6281234567891' }
-  const app = createGoogleApplication({ env, database, readContacts: async () => ({ sourceId: CONTACTS_SOURCE.id, sheet: CONTACTS_SOURCE.sheet, contacts:[contact], fetchedAt:new Date(time).toISOString(), revision:'contact-test' }) })
-  const response = await app.handle(req('/api/contacts'))
+  const contact = { store: 'TEST1', acName: 'TEST AC' }
+  const snapshot = { contacts: [contact], fetchedAt: new Date(0).toISOString(), revision: 'contact-test' }
+  database.tables.set('sapa_source_cache', [{ cache_key: 'contacts:directory', snapshot, expires_at: new Date(0).toISOString() }])
+  const cloud = createGoogleApplication({ env: {}, database, fetchImpl: async () => assert.fail('Contact reads must not call Google') })
+  const api = createApplicationApi({ cloud })
+  const response = await api(req('/api/contacts'))
   assert.equal(response.status, 200)
-  assert.deepEqual((await response.json()).contacts, [contact])
+  assert.deepEqual(await response.json(), { ...snapshot, transport: 'supabase', stale: false, error: '' })
+  const notModified = await api(new Request(req('/api/contacts'), { headers: { 'If-None-Match': response.headers.get('ETag') } }))
+  assert.equal(notModified.status, 304)
 })
-test('contacts use a 24-hour database snapshot and admin refresh bypasses it', async () => {
-  const database = memoryDatabase()
-  let clock = time
-  let reads = 0
-  const api = createGoogleSheetsApi({ database, googleRequest: async () => assert.fail('Excel source should not call Sheets API'), now: () => clock })
-  const reader = async () => ({ contacts: [{ name: `Contact ${++reads}` }], fetchedAt: new Date(clock).toISOString(), revision: String(reads) })
-  assert.equal((await api.contacts(reader)).contacts[0].name, 'Contact 1')
-  clock += 23 * 3600000
-  assert.equal((await api.contacts(reader)).contacts[0].name, 'Contact 1')
-  assert.equal((await api.contacts(reader, { force: true })).contacts[0].name, 'Contact 2')
-  assert.equal(reads, 2)
-  clock += 25 * 3600000
-  assert.equal((await api.contacts(reader)).contacts[0].name, 'Contact 3')
+test('admin imports Excel contacts explicitly and a failed import retains the directory', async () => {
+  const contact = { store: 'TEST1', acName: 'TEST AC' }
+  let failImport = false
+  const { app, database } = appFixture({}, { readContacts: async ({ force }) => {
+    assert.equal(force, true)
+    return { sheet: CONTACTS_SOURCE.sheet, contacts: failImport ? [] : [contact] }
+  } })
+  Object.assign(database.tables.get('sapa_source_settings')[0], { contacts_spreadsheet_id: CONTACTS_SOURCE.id, contacts_sheet: CONTACTS_SOURCE.sheet })
+  const { cookie } = await login(app)
+  const importRequest = cookie => req('/api/admin/contacts/refresh', { method: 'POST', cookie, body: {} })
+  assert.equal((await app.handle(importRequest())).status, 401)
+  assert.equal((await app.handle(importRequest(cookie))).status, 200)
+  failImport = true
+  assert.equal((await app.handle(importRequest(cookie))).status, 503)
+  const response = await app.handle(req('/api/contacts'))
+  assert.deepEqual((await response.json()).contacts, [contact])
 })
 
 const header = ['Jam', 'No AC', 'Nama AC', 'Kode Toko', 'Nama Toko', 'Cabang', 'Region', 'Shipment', 'Nama Konsumen', 'SLA', 'Nama AM', 'No AM', 'POD AC', 'APV AM', 'PIC', 'Status', 'Kondisi Motor', 'Jumlah Personil', 'Nama Pejabat', 'Kendala', 'Grouping', 'GLI']
@@ -236,13 +242,13 @@ test('verified live layout with blank PIC header uses O; unrelated layouts remai
   const roster = createRosterReader(async () => ({ ok: true, headers: new Headers({ 'content-type': 'text/csv' }), text: async () => csv }), () => new Date(time))
   assert.deepEqual(await roster(), ['PIC TEST'])
 })
-function sheetsFixture() {
+function sheetsFixture(regTitle = 'REG 01/11') {
   const database = memoryDatabase(); const writes = []; let clock = time; let calls = 0; let offline = false
   const googleRequest = async (_id, suffix, options = {}) => {
     calls++
     if (offline) throw new Error('Test offline')
     if (options.method === 'POST') { writes.push(options.body); return { totalUpdatedCells: 2 } }
-    if (suffix.startsWith('?fields=')) return { sheets: ['REG', 'DS'].map((key, i) => ({ properties: { sheetId: i + 1, title: `${key} 01/11` } })) }
+    if (suffix.startsWith('?fields=')) return { sheets: ['REG', 'DS'].map((key, i) => ({ properties: { sheetId: i + 1, title: key === 'REG' ? regTitle : 'DS 01/11' } })) }
     if (suffix.startsWith('/values:batchGet')) return { valueRanges: [{ values: [header, cells] }, { values: [header, cells] }] }
     if (suffix.includes('valueRenderOption=FORMULA')) return { values: [cells] }
     return { values: [header] }
@@ -257,6 +263,11 @@ test('Sheets API coalesces requests and reuses durable same-day snapshot across 
   const another = createGoogleSheetsApi({ database: f.database, googleRequest: async () => assert.fail('durable cache should be reused'), now: () => time })
   assert.equal((await another.monitoring({ date: '2026-11-01' })).revision, a.revision)
   assert.equal(a.rows[0].sheetDate, '2026-11-01'); assert.equal(a.transport, 'google-api')
+})
+test('monitoring resolves a padded daily tab and retains its exact title for edits', async () => {
+  const { api } = sheetsFixture(' REG 01/11')
+  const snapshot = await api.monitoring({ date: '2026-11-01' })
+  assert.equal(snapshot.rows.find(row => row.source === 'REG').sheetTitle, ' REG 01/11')
 })
 test('failed refresh retains prior snapshot with warning, never leaks previous day into new day', async () => {
   const f = sheetsFixture(); const first = await f.api.monitoring({ date: '2026-11-01' })

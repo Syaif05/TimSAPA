@@ -16,6 +16,14 @@ export function dailySheetTitle(source, date) {
   return `${source} ${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`
 }
 
+// Prefer an exact title. If only whitespace differs, require an unambiguous match.
+export function findDailySheet(sheets, title) {
+  const exact = sheets.find(sheet => sheet.properties.title === title)
+  if (exact) return exact.properties
+  const matches = sheets.filter(sheet => sheet.properties.title.trim() === title)
+  return matches.length === 1 ? matches[0].properties : undefined
+}
+
 export const CONTACTS_SOURCE = {
   id: '1tMhnC9DDu9q4N1IMoR-DbaRiDbEH_bCS',
   gid: '641664316',

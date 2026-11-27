@@ -15,8 +15,6 @@ import { HasilKerjaView } from './HasilKerjaView'
 const SmartMonitoringSheet = lazy(() => import('./SmartMonitoringSheet').then(m => ({ default: m.SmartMonitoringSheet })))
 import { MonitoringTools } from './MonitoringTools'
 import { SheetsConnection } from './SheetsConnection'
-import { SAMPLE_SAPA_TSV } from '../utils/sampleSapaData'
-import { parseSapaRawText } from '../utils/sapaParser'
 import {
   formatDateDisplay,
   getTodayDateString,
@@ -183,13 +181,6 @@ export function MonitoringWorkspace({
     if (window.innerWidth > 800 && top < 16) window.scrollBy({top:top-16,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})
   }
 
-  // Muat Demo
-  const handleLoadDemo = () => {
-    const rows = parseSapaRawText(SAMPLE_SAPA_TSV)
-    onImportData(rows, { newCount: rows.length, duplicateCount: 0, mode: 'replace' })
-    showToast?.('Data sampel Gambar 1 berhasil dimuat!', 'success')
-  }
-
   // Handler Reset Data Hari Ini
   const handleConfirmResetDate = () => {
     const formatted = formatDateDisplay(selectedDate)
@@ -257,7 +248,7 @@ export function MonitoringWorkspace({
           {filters.jam === 'LATEST' && <p>Pilihan JAM terbaru mengikuti jam paling akhir yang tersedia saat data diperbarui.</p>}
         </div>}
 
-        {viewMode === 'smart' ? <Suspense fallback={<div className="empty-panel">Memuat Spreadsheet Pintar…</div>}><SmartMonitoringSheet key={`${isLive ? dataConnection?.mode : 'manual'}:${dataConnection?.snapshot?.date || selectedDate}`} rows={sheetRows} connection={isLive ? dataConnection : undefined} date={dataConnection?.snapshot?.date || selectedDate} defaultSource={sheetPreferences?.source || 'ALL'} showToast={showToast}/></Suspense> : viewMode === 'work' ? <HasilKerjaView key={`${isLive ? dataConnection?.mode : 'manual'}:${isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate}`} rows={sheetRows} date={isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate} scope={isLive ? dataConnection?.mode || 'daily' : 'manual'} storage={storage} defaultPic={isLive ? sheetPreferences?.pic : filters.pic} defaultSource={isLive ? sheetPreferences?.source : 'ALL'} showToast={showToast} connection={isLive ? dataConnection : undefined}/> : acGroups.length === 0 ? <div className="empty-panel"><FileSpreadsheet size={30} strokeWidth={1}/><h2>{isLive ? (dataConnection.snapshot ? 'Tidak ada pesanan untuk filter ini' : dataConnection.phase === 'error' ? 'Sumber belum bisa dibaca' : 'Menghubungkan Google Sheets…') : 'Belum ada data'}</h2>{isLive ? <span className="text-xs text-zinc-400">{dataConnection.snapshot ? 'Ubah PIC, sumber, atau status pesanan.' : 'Data manual tetap tersimpan terpisah.'}</span> : <div className="flex gap-2 flex-wrap justify-center"><button className="primary-button" onClick={() => setIsPasteModalOpen(true)}><Plus size={15}/>Input data</button><button className="secondary-button" onClick={handleLoadDemo}>Muat demo</button></div>}</div> : filteredAcGroups.length === 0 ? <div className="empty-panel"><Search size={28}/><h2>Tidak ada hasil</h2><span className="text-xs text-zinc-400">{filters.jam !== 'ALL' ? 'Tidak ada pesanan aktif yang cocok dengan JAM ini. Pilih JAM terbaru atau Semua JAM.' : 'Sesuaikan pencarian atau filter.'}</span></div> : viewMode === 'split' ? (
+        {viewMode === 'smart' ? <Suspense fallback={<div className="empty-panel">Memuat Spreadsheet Pintar…</div>}><SmartMonitoringSheet key={`${isLive ? dataConnection?.mode : 'manual'}:${dataConnection?.snapshot?.date || selectedDate}`} rows={sheetRows} connection={isLive ? dataConnection : undefined} date={dataConnection?.snapshot?.date || selectedDate} defaultSource={sheetPreferences?.source || 'ALL'} showToast={showToast}/></Suspense> : viewMode === 'work' ? <HasilKerjaView key={`${isLive ? dataConnection?.mode : 'manual'}:${isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate}`} rows={sheetRows} date={isLive ? dataConnection?.snapshot?.date || todayDate : selectedDate} scope={isLive ? dataConnection?.mode || 'daily' : 'manual'} storage={storage} defaultPic={isLive ? sheetPreferences?.pic : filters.pic} defaultSource={isLive ? sheetPreferences?.source : 'ALL'} showToast={showToast} connection={isLive ? dataConnection : undefined}/> : acGroups.length === 0 ? <div className="empty-panel"><FileSpreadsheet size={30} strokeWidth={1}/><h2>{isLive ? (dataConnection.snapshot ? 'Tidak ada pesanan untuk filter ini' : dataConnection.phase === 'error' ? 'Sumber belum bisa dibaca' : 'Menghubungkan Google Sheets…') : 'Belum ada data'}</h2>{isLive ? <span className="text-xs text-zinc-400">{dataConnection.snapshot ? 'Ubah PIC, sumber, atau status pesanan.' : 'Data manual tetap tersimpan terpisah.'}</span> : <div className="flex gap-2 flex-wrap justify-center"><button className="primary-button" onClick={() => setIsPasteModalOpen(true)}><Plus size={15}/>Input data</button></div>}</div> : filteredAcGroups.length === 0 ? <div className="empty-panel"><Search size={28}/><h2>Tidak ada hasil</h2><span className="text-xs text-zinc-400">{filters.jam !== 'ALL' ? 'Tidak ada pesanan aktif yang cocok dengan JAM ini. Pilih JAM terbaru atau Semua JAM.' : 'Sesuaikan pencarian atau filter.'}</span></div> : viewMode === 'split' ? (
           <div className="workspace-split">
             <section ref={queueRef} className="queue-panel" aria-label="Antrean AC">
               <div className="queue-heading"><div><span className="queue-eyebrow">PROGRES FOLLOW UP</span><h2>Antrean AC</h2></div><span className="queue-total">{filteredAcGroups.length} AC</span></div>

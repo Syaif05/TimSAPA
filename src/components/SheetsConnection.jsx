@@ -24,13 +24,12 @@ export function SheetsConnection({ connection, preferences, onPreferencesChange,
     </div>}
     <div className="flex items-center gap-1">
       {enabled && <button className="icon-button" aria-label="Sinkronkan sekarang" title="Sinkronkan sekarang" disabled={loading} onClick={refresh}><RefreshCw size={15} className={loading ? 'sync-spinning' : ''}/></button>}
-      {contactsConnection && <InfoButton title="Kontak spreadsheet" icon={Users}>
-        <p>Nomor AC dicocokkan dari Store, Store Name, AC name, dan CUG AC pada sheet KONTAK TOKO BARU. Sumber kontak dibaca saja.</p>
+      {contactsConnection && <InfoButton title="Kontak Supabase" icon={Users}>
+        <p>Nomor AC dan AM dicocokkan berdasarkan kode toko dari data kontak di Supabase.</p>
         <p>{contactsConnection.ready ? `${contactsConnection.snapshot.contacts.length.toLocaleString('id-ID')} kontak toko tersedia.` : 'Memuat kontak…'}</p>
-        {contactsConnection.checkedAt && <p className="text-xs">Terakhir dibaca: {new Date(contactsConnection.checkedAt).toLocaleString('id-ID', {timeZone: 'Asia/Jakarta'})} WIB.</p>}
-        {contactsConnection.snapshot?.stale && <p className="text-xs">Memakai salinan terakhir; pembaruan sedang dicoba.</p>}
+        {contactsConnection.checkedAt && <p className="text-xs">Terakhir diimpor: {new Date(contactsConnection.checkedAt).toLocaleString('id-ID', {timeZone: 'Asia/Jakarta'})} WIB.</p>}
         {contactsConnection.error && <p className="text-xs text-rose-500" role="alert">{contactsConnection.error}</p>}
-        <a href={contactsConnection.snapshot?.sourceId ? `https://docs.google.com/spreadsheets/d/${contactsConnection.snapshot.sourceId}/edit` : CONTACTS_SOURCE.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 underline">Buka file kontak<ExternalLink size={12}/></a>
+        <a href={contactsConnection.snapshot?.sourceId ? `https://docs.google.com/spreadsheets/d/${contactsConnection.snapshot.sourceId}/edit` : CONTACTS_SOURCE.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 underline">Buka file asal impor<ExternalLink size={12}/></a>
         <button className="secondary-button" onClick={contactsConnection.refresh}><RefreshCw size={14}/>Periksa kontak</button>
       </InfoButton>}
       <InfoButton title="Pengaturan sumber data" icon={Settings2}>
@@ -45,8 +44,8 @@ export function SheetsConnection({ connection, preferences, onPreferencesChange,
         {SHEET_SOURCES.map(s => <a key={s.key} href={spreadsheetLink(s.gid)} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs underline">Buka sumber {s.key}<ExternalLink size={12}/></a>)}
       </InfoButton>
     </div>
-    {contactsConnection && !contactsConnection.ready && <div className="contacts-loading" role="status">{contactsConnection.error ? 'Kontak belum siap; periksa ikon kontak.' : compact ? 'Memuat kontak…' : 'Memuat sumber kontak spreadsheet…'}</div>}
+    {contactsConnection && !contactsConnection.ready && <div className="contacts-loading" role="status">{contactsConnection.error ? 'Kontak belum siap; periksa ikon kontak.' : compact ? 'Memuat kontak…' : 'Memuat kontak dari Supabase…'}</div>}
     {contactsConnection?.ready && contactsConnection.error && <div className="sheets-error" role="alert">{compact ? 'Kontak: memakai salinan terakhir. Detail di ikon kontak.' : `${contactsConnection.error} Memakai kontak terakhir.`}</div>}
-    {enabled && error && <div className="sheets-error" role="alert">{compact ? (snapshot ? 'Sinkronisasi gagal; memakai data terakhir.' : 'Sumber belum terhubung.') : `${error} ${snapshot ? 'Menampilkan data terakhir.' : 'Belum ada data yang berhasil dibaca.'}`} Detail di pengaturan sumber.</div>}
+    {enabled && error && <div className="sheets-error" role="alert">{compact ? (snapshot ? 'Sinkronisasi gagal; memakai data terakhir.' : error) : `${error} ${snapshot ? 'Menampilkan data terakhir.' : 'Belum ada data yang berhasil dibaca.'}`} Detail di pengaturan sumber.</div>}
   </section>
 }

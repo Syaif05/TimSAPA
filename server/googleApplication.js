@@ -162,6 +162,13 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
         }
         // Contact corrections live in the database and do not require a Google token.
         if (path === '/api/contacts' && request.method === 'GET' && url.searchParams.get('mode') === 'phone-overrides') return json(await acPhones.list())
+        if (path === '/api/contacts' && request.method === 'GET') {
+          const data = await sheets.contacts()
+          const etag = `"${data.revision}:supabase"`
+          const headers = { ETag: etag, 'X-SAPA-Fetched-At': data.fetchedAt }
+          if (request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers: { ...headers, 'Cache-Control': 'no-store' } })
+          return json(data, 200, headers)
+        }
         if (path === '/api/contacts' && request.method === 'PATCH') {
           sameOrigin(request)
           return json(await acPhones.save(await bodyOf(request)))
@@ -182,13 +189,12 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
           await database('sapa_source_cache?on_conflict=cache_key', { method: 'POST', body: { cache_key: 'settings:followup-design', snapshot, expires_at: '9999-12-31T00:00:00Z' }, prefer: 'resolution=merge-duplicates,return=minimal' })
           return json(snapshot)
         }
-        if (!path.startsWith('/api/auth/') && !path.startsWith('/api/admin/') && path !== '/api/orders' && path !== '/api/tarik-update' && path !== '/api/activity' && !(enabled && ['/api/sheets', '/api/contacts'].includes(path))) return null
+        if (!path.startsWith('/api/auth/') && !path.startsWith('/api/admin/') && path !== '/api/orders' && path !== '/api/tarik-update' && path !== '/api/activity' && !(enabled && path === '/api/sheets')) return null
         requireConfig()
         // Enabling admin login must not interrupt the existing public monitoring
         // while the manager has yet to connect their Google account. Both readers
         // target the same fixed monitoring workbook; writes never use this fallback.
         if (path === '/api/sheets' && request.method === 'GET' && !(await connection().catch(() => null))) return null
-        if (path === '/api/contacts' && request.method === 'GET' && !(await connection())) return null
         if (path === '/api/auth/login' && request.method === 'GET') return await begin(request, 'login')
         if (path === '/api/auth/connect' && request.method === 'GET') return await begin(request, 'connect')
         if (path === '/api/auth/callback' && request.method === 'GET') return await callback(request, url)
@@ -237,8 +243,7 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
         if (path === '/api/admin/contacts/refresh' && request.method === 'POST') {
           sameOrigin(request); await requireAdmin(request)
           const settings = await sourceSettings()
-          const data = await sheets.contacts(excelContacts(settings) ? readContacts : undefined, { force: true })
-          if (data.stale) throw httpError(503, data.error || 'Kontak belum berhasil diperbarui. Data lama tetap tersedia.')
+          const data = await sheets.importContacts(excelContacts(settings) ? readContacts : undefined)
           return json({ count: data.contacts.length, fetchedAt: data.fetchedAt, sourceId: data.sourceId })
         }
         if (path === '/api/tarik-update' && request.method === 'POST') {
@@ -261,15 +266,6 @@ export function createGoogleApplication({ env = process.env, fetchImpl = fetch, 
         }
         if (path === '/api/sheets' && request.method === 'GET') {
           const data = await sheets.monitoring({ mode: url.searchParams.get('mode') || 'daily', date: url.searchParams.get('date') || undefined, force: url.searchParams.get('fresh') === '1' })
-          const etag = `"${data.revision}:${!!data.stale}"`
-          const headers = { ETag: etag, 'X-SAPA-Fetched-At': data.fetchedAt }
-          if (!data.stale && request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers: { ...headers, 'Cache-Control': 'no-store' } })
-          return json(data, 200, headers)
-        }
-        if (path === '/api/contacts' && request.method === 'GET') {
-          const settings = await sourceSettings()
-          // The original contacts file is an XLSX opened in the Sheets UI, not a native Sheet.
-          const data = await sheets.contacts(excelContacts(settings) ? readContacts : undefined)
           const etag = `"${data.revision}:${!!data.stale}"`
           const headers = { ETag: etag, 'X-SAPA-Fetched-At': data.fetchedAt }
           if (!data.stale && request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers: { ...headers, 'Cache-Control': 'no-store' } })

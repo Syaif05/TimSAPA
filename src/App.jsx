@@ -50,7 +50,7 @@ function WorkspaceApp() {
   const loadDailySession = date => loadDailySessionForPic(date, sessionScope)
   const clearDailySession = date => clearDailySessionForPic(date, sessionScope)
   const getStoredSessionDates = () => getStoredSessionDatesForPic(sessionScope)
-  const sheets = useLiveSheets({ storage })
+  const sheets = useLiveSheets()
   const contactsConnection = useContactsSheet()
   const masterContacts = contactsConnection.snapshot?.contacts || EMPTY_CONTACTS
   const [sheetPreferences, setSheetPreferences] = useState(() => {
@@ -320,7 +320,6 @@ function WorkspaceApp() {
         activeTab={activeTab}
         onTabChange={tab => { if (tab === 'settings') setSettingsTab('appearance'); setActiveTab(tab) }}
         onOpenPasteModal={() => {
-          sheets.setEnabled(false)
           setActiveTab('workspace')
           setIsPasteModalOpen(true)
         }}

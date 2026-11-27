@@ -19,7 +19,7 @@ export function useContactsSheet() {
         if (response.status === 304) {
           setState(prev => ({ ...prev, phase: prev.snapshot?.stale ? 'cached' : 'live', error: prev.snapshot?.error || '', checkedAt: response.headers.get('X-SAPA-Fetched-At') || prev.checkedAt }))
         } else {
-          if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('Jalankan ulang SAPA untuk mengaktifkan sumber kontak spreadsheet.')
+          if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('Layanan kontak Supabase belum tersedia.')
           const data = await response.json()
           if (!response.ok) throw new Error(data.error || 'Gagal memuat sumber kontak.')
           if (!Array.isArray(data.contacts) || !data.contacts.length) throw new Error('Data kontak tidak lengkap.')

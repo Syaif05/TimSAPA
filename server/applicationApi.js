@@ -1,21 +1,20 @@
 import { createGoogleApplication } from './googleApplication.js'
 import { createSheetsReader } from './sheetsData.js'
-import { createContactsReader } from './contactsData.js'
 import { gzip } from 'node:zlib'
 import { promisify } from 'node:util'
 const compress = promisify(gzip)
 
 // Same handler in Vite and Vercel. Credentials are read exclusively by server code.
-export function createApplicationApi({ env = process.env, cloud = createGoogleApplication({ env }), read = createSheetsReader(), readContacts = createContactsReader() } = {}) {
+export function createApplicationApi({ env = process.env, cloud = createGoogleApplication({ env }), read = createSheetsReader() } = {}) {
   return async request => {
     const response = await cloud.handle(request)
     if (response) return response
     const url = new URL(request.url)
-    if (!['/api/sheets', '/api/contacts'].includes(url.pathname)) return new Response(JSON.stringify({ error: 'Endpoint tidak ditemukan.' }), { status: 404, headers: { 'Content-Type': 'application/json' } })
+    if (url.pathname !== '/api/sheets') return new Response(JSON.stringify({ error: 'Endpoint tidak ditemukan.' }), { status: 404, headers: { 'Content-Type': 'application/json' } })
     const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }
     if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Sumber publik hanya dapat dibaca.' }), { status: 405, headers: { ...headers, Allow: 'GET' } })
     try {
-      const data = url.pathname === '/api/contacts' ? await readContacts() : await read({ mode: url.searchParams.get('mode') || 'daily', date: url.searchParams.get('date') || undefined })
+      const data = await read({ mode: url.searchParams.get('mode') || 'daily', date: url.searchParams.get('date') || undefined })
       const etag = `"${data.revision}:${!!data.stale}"`
       const resultHeaders = { ...headers, ETag: etag, 'X-SAPA-Fetched-At': data.fetchedAt }
       if (!data.stale && request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers: resultHeaders })

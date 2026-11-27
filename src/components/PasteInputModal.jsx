@@ -6,7 +6,6 @@ import {
   ClipboardPaste,
   UploadCloud,
   FileSpreadsheet,
-  Sparkles,
   Check,
   AlertTriangle,
   ArrowRight,
@@ -16,7 +15,6 @@ import {
   CopyCheck
 } from 'lucide-react'
 import { parseSapaRawText, parseSapaExcel } from '../utils/sapaParser'
-import { SAMPLE_SAPA_TSV } from '../utils/sampleSapaData'
 import { mergeSapaRowsWithDeduplication, getOrderUniqueKey } from '../utils/sessionManager'
 
 export function PasteInputModal({ isOpen, onClose, onImportData, existingRows = [], showToast }) {
@@ -43,14 +41,6 @@ export function PasteInputModal({ isOpen, onClose, onImportData, existingRows = 
     } catch (err) {
       console.error(err)
     }
-  }
-
-  // Load sample demo data
-  const handleLoadSample = () => {
-    setInputText(SAMPLE_SAPA_TSV)
-    const rows = parseSapaRawText(SAMPLE_SAPA_TSV)
-    setParsedPreview(rows)
-    showToast?.('Data sampel Gambar 1 berhasil dimuat!', 'success')
   }
 
   // Handle File Upload (.xlsx / .csv)
@@ -176,13 +166,6 @@ export function PasteInputModal({ isOpen, onClose, onImportData, existingRows = 
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleLoadSample}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-full bg-[#FEF08A] hover:bg-[#FDE047] text-[#854D0E] transition-all cursor-pointer shadow-2xs"
-            >
-              <Sparkles size={13} />
-              Contoh
-            </button>
             <button
               onClick={onClose}
               aria-label="Tutup input data"

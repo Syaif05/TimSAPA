@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { jakartaDate } from '../utils/sheetsConfig'
-const load = (storage, key, fallback) => { try { return storage.getItem(key) ?? fallback } catch { return fallback } }
-export function useLiveSheets({ storage = localStorage, active = true, forceEnabled = false } = {}) {
-  const [storedEnabled, setEnabled] = useState(() => load(storage, 'sapa_sheets_enabled', 'true') === 'true')
-  const enabled = forceEnabled || storedEnabled
-  const [mode, setMode] = useState(() => load(storage, 'sapa_sheets_mode', 'daily') === 'daily' ? 'daily' : 'linked')
+export function useLiveSheets({ active = true } = {}) {
+  // Each workspace starts with today's operational sheet. Manual/linked selections
+  // are temporary and must not restore old demo or archive data on the next login.
+  const [enabled, setEnabled] = useState(true)
+  const [mode, setMode] = useState('daily')
   const [today, setToday] = useState(jakartaDate)
   const [retry, setRetry] = useState(0)
   const [state, setState] = useState({ key: '', snapshot: null, phase: 'loading', error: '', checkedAt: null })
@@ -15,7 +15,6 @@ export function useLiveSheets({ storage = localStorage, active = true, forceEnab
     const timer = setInterval(() => setToday(jakartaDate()), 30000)
     return () => clearInterval(timer)
   }, [])
-  useEffect(() => { if (!forceEnabled) { try { storage.setItem('sapa_sheets_enabled', String(enabled)); storage.setItem('sapa_sheets_mode', mode) } catch {} } }, [enabled, mode, storage, forceEnabled])
   useEffect(() => {
     if (!enabled || !active) return
     let disposed = false

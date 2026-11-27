@@ -3,7 +3,7 @@ import { withSheetWriteLock } from './sheetWriteLock.js'
 import { createFollowUpSync, followUpColumns } from './followUpSync.js'
 import { createHash } from 'node:crypto'
 import { parseMonitoringValues } from '../src/utils/sheetsParser.js'
-import { CONTACTS_SOURCE, dailySheetTitle, jakartaDate, LINKED_SHEET_DATE, SHEET_SOURCES, SPREADSHEET_ID } from '../src/utils/sheetsConfig.js'
+import { CONTACTS_SOURCE, dailySheetTitle, findDailySheet, jakartaDate, LINKED_SHEET_DATE, SHEET_SOURCES, SPREADSHEET_ID } from '../src/utils/sheetsConfig.js'
 import { parseContactRows } from './contactRows.js'
 import { httpError } from './googleOAuth.js'
 import { queryPath } from './cloudDatabase.js'
@@ -50,7 +50,9 @@ export function createGoogleSheetsApi({ database, googleRequest, now = () => Dat
       const metadata = await googleRequest(SPREADSHEET_ID, '?fields=sheets(properties(sheetId,title))')
       const tabs = SHEET_SOURCES.map(source => {
         const title = mode === 'linked' ? null : dailySheetTitle(source.key, sourceDate)
-        const tab = metadata.sheets?.find(s => title ? s.properties.title === title : String(s.properties.sheetId) === source.gid)?.properties
+        const tab = title
+          ? findDailySheet(metadata.sheets || [], title)
+          : metadata.sheets?.find(s => String(s.properties.sheetId) === source.gid)?.properties
         if (!tab) throw httpError(422, `Tab ${title || source.title} belum tersedia. Periksa tab tanggal tersebut di spreadsheet.`)
         return { key: source.key, title: tab.title, gid: String(tab.sheetId) }
       })
@@ -63,14 +65,21 @@ export function createGoogleSheetsApi({ database, googleRequest, now = () => Dat
       return { mode, date: sourceDate, fetchedAt: new Date(now()).toISOString(), revision: hash(rows), sources: sources.map(({ rows: sourceRows, ...s }) => ({ ...s, count: sourceRows.length })), rows, transport: 'google-api' }
     }, force)
   }
-  async function contacts(readExcel, { force = false } = {}) {
+  async function contacts() {
+    const [record] = await database(queryPath('sapa_source_cache', { cache_key: 'eq.contacts:directory', select: 'snapshot' }))
+    if (!record?.snapshot?.contacts?.length) throw httpError(503, 'Kontak belum tersedia di Supabase. Minta admin mengimpor data kontak.')
+    return { ...record.snapshot, transport: 'supabase', stale: false, error: '' }
+  }
+  async function importContacts(readExcel) {
     const source = await contactsSource()
-    return cached(`contacts:${source.id}:${source.sheet}`, 86400000, async () => {
-      if (readExcel) return { ...await readExcel({ force: true }), transport: 'excel' }
-      const data = await googleRequest(source.id, `/values/${encodeURIComponent(`${quote(source.sheet)}!A:AZ`)}?valueRenderOption=FORMATTED_VALUE`)
-      const rows = parseContactRows(data.values || [])
-      return { sourceId: source.id, sheet: source.sheet, contacts: rows, fetchedAt: new Date(now()).toISOString(), revision: hash(rows), transport: 'google-api' }
-    }, force)
+    const data = readExcel
+      ? await readExcel({ force: true })
+      : await googleRequest(source.id, `/values/${encodeURIComponent(`${quote(source.sheet)}!A:AZ`)}?valueRenderOption=FORMATTED_VALUE`)
+    const rows = readExcel ? data.contacts : parseContactRows(data.values || [])
+    if (data.stale || !rows?.length) throw httpError(503, 'Impor kontak gagal. Data di Supabase tetap tersedia.')
+    const snapshot = { sourceId: source.id, sheet: readExcel ? data.sheet : source.sheet, contacts: rows, fetchedAt: new Date(now()).toISOString(), revision: hash([source.id, source.sheet, rows]) }
+    await database('sapa_source_cache?on_conflict=cache_key', { method: 'POST', body: { cache_key: 'contacts:directory', snapshot, expires_at: '9999-12-31T00:00:00Z' }, prefer: 'resolution=merge-duplicates,return=minimal' })
+    return snapshot
   }
   // Only follow-up fields can be changed. Headers are resolved afresh before each write.
   async function updateOrderUnlocked(body, actor, markUncertain) {
@@ -122,5 +131,5 @@ export function createGoogleSheetsApi({ database, googleRequest, now = () => Dat
     memory.clear()
     await database(queryPath('sapa_source_cache', { cache_key: `eq.monitoring:${mode}:${date}` }), { method: 'DELETE' })
   } })
-  return { monitoring, contacts, updateOrder, carryForward }
+  return { monitoring, contacts, importContacts, updateOrder, carryForward }
 }

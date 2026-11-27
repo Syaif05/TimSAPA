@@ -17,7 +17,7 @@ export function ProfileGate({ children }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [retry, setRetry] = useState(0)
-  const discovery = useLiveSheets({ active: !store, forceEnabled: true })
+  const discovery = useLiveSheets({ active: !store })
   const alive = useRef(true)
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   useEffect(() => {

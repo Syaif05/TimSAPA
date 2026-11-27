@@ -1,6 +1,6 @@
 import { randomUUID, randomInt } from 'node:crypto'
 import { TARIK_COLUMNS } from '../src/utils/tarikData.js'
-import { dailySheetTitle, jakartaDate, SPREADSHEET_ID } from '../src/utils/sheetsConfig.js'
+import { dailySheetTitle, findDailySheet, jakartaDate, SPREADSHEET_ID } from '../src/utils/sheetsConfig.js'
 import { parseMonitoringValues } from '../src/utils/sheetsParser.js'
 import { httpError } from './googleOAuth.js'
 import { queryPath } from './cloudDatabase.js'
@@ -16,16 +16,16 @@ export function planDailyTabs(sheets, date, yesterday) {
  const used=new Set(sheets.map(s=>s.properties.sheetId))
  return ['REG','DS'].map(key=>{
   const title=dailySheetTitle(key,date)
-  const existing=sheets.find(s=>s.properties.title===title)?.properties
-  if(existing)return {...existing,key,readTitle:title,requests:[]}
+  const existing=findDailySheet(sheets,title)
+  if(existing)return {...existing,key,readTitle:existing.title,requests:[]}
   const priorTitle=dailySheetTitle(key,yesterday)
-  const prior=sheets.find(s=>s.properties.title===priorTitle)?.properties
+  const prior=findDailySheet(sheets,priorTitle)
   if(!prior)throw httpError(422,`Tab ${title} dan tab kemarin ${priorTitle} belum tersedia. Buat template terlebih dahulu.`)
   if(prior.gridProperties.rowCount<3)throw httpError(422,`Template ${priorTitle} harus memiliki setidaknya 3 baris.`)
   let sheetId;do {sheetId=randomInt(1,2147483647)}while(used.has(sheetId));used.add(sheetId)
   const requests=[{duplicateSheet:{sourceSheetId:prior.sheetId,newSheetId:sheetId,newSheetName:title}}]
   if(prior.gridProperties.rowCount>3)requests.push({deleteDimension:{range:{sheetId,dimension:'ROWS',startIndex:3,endIndex:prior.gridProperties.rowCount}}})
-  return {key,title,sheetId,gridProperties:{rowCount:3},readTitle:priorTitle,created:true,requests}
+  return {key,title,sheetId,gridProperties:{rowCount:3},readTitle:prior.title,created:true,requests}
  })
 }
 function checkHeaders(values) {
