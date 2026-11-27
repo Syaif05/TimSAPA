@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { smartSheetEntries, planFollowUpCarry, FOLLOW_UP_FIELDS } from '../src/utils/smartSheet.js'
+import { smartSheetEntries, smartSheetEntriesAtHour, planFollowUpCarry, FOLLOW_UP_FIELDS } from '../src/utils/smartSheet.js'
 import { createFollowUpSync } from '../server/followUpSync.js'
 
 const date = '2026-11-26'
@@ -39,6 +39,22 @@ test('repeated same-hour data stays one display row; ambiguous peers do not auto
   assert.ok(plan.every(p => !('sheetStatus' in p.changes)))
   assert.ok(smartSheetEntries([filled, latest, conflict])[0].conflicts.includes('sheetStatus'))
   assert.equal(planFollowUpCarry([row(), { ...filled, jam: '12.00', sheetRow: 9 }], { pic: 'PIC TEST' }).length, 0)
+})
+test('a historical JAM shows its recorded DONE status even when the latest status differs', () => {
+  const entries = smartSheetEntries([filled, { ...latest, sheetStatus: 'Proses' }])
+  assert.equal(entries[0].effective.sheetStatus, 'Proses')
+  const [morning] = smartSheetEntriesAtHour(entries, '10.00')
+  assert.equal(morning.row.sheetRow, filled.sheetRow)
+  assert.equal(morning.effective.sheetStatus, filled.sheetStatus)
+  assert.equal(morning.history.length, 2)
+  assert.deepEqual(smartSheetEntriesAtHour(entries, '09.00'), [])
+})
+test('a blank duplicate at the same JAM does not hide a recorded DONE status or trigger a write', () => {
+  const rows = [{ ...latest, sheetStatus: filled.sheetStatus }, { ...latest, sheetRow: 9 }]
+  const [entry] = smartSheetEntries(rows)
+  assert.equal(entry.effective.sheetStatus, filled.sheetStatus)
+  assert.ok(entry.conflicts.includes('sheetStatus'))
+  assert.deepEqual(planFollowUpCarry(rows, { pic: 'PIC TEST' }), [])
 })
 test('carry is idempotent and picks the nearest preceding nonblank field, not the first row', () => {
   const middle = row({ jam: '10:30', sheetRow: 5, kendala: 'Catatan terbaru' })

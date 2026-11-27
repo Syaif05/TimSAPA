@@ -29,9 +29,13 @@ export function smartSheetEntries(rows) {
   }
   return [...groups].map(([key, history]) => {
     history.sort(chronological)
-    const row = history.at(-1)
+    const latest = history.at(-1)
+    const peers = history.filter(row => hourRank(row.jam) === hourRank(latest.jam))
+    const statuses = peers.filter(row => textValue(row.sheetStatus))
+    // Prefer the recorded status over a blank duplicate at the same known hour.
+    const hasAgreedStatus = new Set(statuses.map(row => textValue(row.sheetStatus))).size === 1
+    const row = hourRank(latest.jam) >= 0 && !textValue(latest.sheetStatus) && hasAgreedStatus ? statuses.at(-1) : latest
     const conflicts = FOLLOW_UP_FIELDS.filter(field => {
-      const peers = history.filter(r => hourRank(r.jam) === hourRank(row.jam))
       return new Set(peers.map(r => textValue(r[field.key]))).size > 1
     }).map(f => f.key)
     const effective = { ...row }
@@ -49,6 +53,18 @@ export function smartSheetEntries(rows) {
       inherited[field.key] = { jam: normalizeMonitoringHour(last.jam), sheetRow: last.sheetRow }
     }
     return { key, row, effective, inherited, history, conflicts, hours: [...new Set(history.map(r => normalizeMonitoringHour(r.jam)).filter(Boolean))] }
+  })
+}
+
+// For a specific hour, show the row as it existed then. Later hours cannot
+// override its status or supply follow-up values to it.
+export function smartSheetEntriesAtHour(entries, hour) {
+  const rank = hourRank(hour)
+  if (rank < 0) return []
+  return entries.flatMap(entry => {
+    if (!entry.history.some(row => hourRank(row.jam) === rank)) return []
+    const [atHour] = smartSheetEntries(entry.history.filter(row => hourRank(row.jam) <= rank))
+    return [{ ...atHour, history: entry.history, hours: entry.hours }]
   })
 }
 

@@ -4,14 +4,14 @@ import { ArrowDownUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, FileSpreads
 import { usePicEditing, usePicProfile } from '../profiles/ProfileContext'
 import { useSourceAccess } from '../cloud/GoogleAdmin'
 import { sourceRequest } from '../cloud/sourceRequest'
-import { FOLLOW_UP_FIELDS, hourRank, planFollowUpCarry, smartSheetEntries, textValue } from '../utils/smartSheet'
+import { FOLLOW_UP_FIELDS, hourRank, planFollowUpCarry, smartSheetEntries, smartSheetEntriesAtHour, textValue } from '../utils/smartSheet'
 import { normalizeMonitoringHour } from '../utils/monitoringView'
 import { isDoneOrder } from '../utils/orderState'
 import { jakartaDate } from '../utils/sheetsConfig'
 
 const norm = value => textValue(value).toUpperCase()
 const BASE_COLUMNS = [
-  { key: 'shipment', label: 'Shipment' }, { key: 'jam', label: 'JAM terakhir' },
+  { key: 'shipment', label: 'Shipment' }, { key: 'jam', label: 'JAM' },
   { key: 'kodeToko', label: 'Kode Toko' }, { key: 'namaToko', label: 'Nama Toko' },
   ...FOLLOW_UP_FIELDS,
 ]
@@ -37,21 +37,28 @@ export function SmartMonitoringSheet({ rows, connection, date, defaultSource = '
   const entries = useMemo(() => smartSheetEntries(rows), [rows])
   const scoped = useMemo(() => entries.filter(e => (pic === 'ALL' || norm(e.row.pic) === norm(pic)) && (source === 'ALL' || e.row.source === source)), [entries, pic, source])
   const pending = useMemo(() => pic === 'ALL' ? [] : planFollowUpCarry(rows, { pic, source }), [rows, pic, source])
-  const hourOptions = useMemo(() => [...new Set(scoped.map(e => normalizeMonitoringHour(e.row.jam)).filter(Boolean))].sort((a, b) => hourRank(b) - hourRank(a)), [scoped])
+  const hourOptions = useMemo(() => [...new Set(scoped.flatMap(entry => entry.hours).filter(hour => hourRank(hour) >= 0))].sort((a, b) => hourRank(b) - hourRank(a)), [scoped])
   const latestHour = hourOptions.find(h => hourRank(h) >= 0)
   const selectedHour = jam === 'LATEST' ? latestHour : jam
   const groupingOptions = useMemo(() => [...new Set(rows.map(row => textValue(row.grouping)).filter(Boolean))].sort(), [rows])
   const columns = extra ? [...BASE_COLUMNS, ...EXTRA_COLUMNS] : BASE_COLUMNS
-  const visible = useMemo(() => scoped.filter(entry => {
-    const row = entry.effective
-    return (jam === 'ALL' || (selectedHour && normalizeMonitoringHour(row.jam) === selectedHour)) &&
-      (status === 'ALL' || (status === 'DONE' ? isDoneOrder(row) : status === 'EMPTY' ? !textValue(row.sheetStatus) : !isDoneOrder(row))) &&
-      (!search.trim() || [row.shipment, row.kodeToko, row.namaToko, row.namaAc, row.kendala, row.grouping, row.pic].some(v => norm(v).includes(norm(search))))
+  const matching = useMemo(() => {
+    const atHour = jam === 'ALL' ? scoped : smartSheetEntriesAtHour(scoped, selectedHour)
+    const query = norm(search)
+    return atHour.filter(({ effective: row }) => !query ||
+      [row.shipment, row.kodeToko, row.namaToko, row.namaAc, row.kendala, row.grouping, row.pic].some(value => norm(value).includes(query)))
+  }, [scoped, jam, selectedHour, search])
+  const doneCount = matching.filter(entry => isDoneOrder(entry.effective)).length
+  const visible = useMemo(() => matching.filter(({ effective: row }) => {
+    if (status === 'DONE') return isDoneOrder(row)
+    if (status === 'ACTIVE') return !isDoneOrder(row)
+    if (status === 'EMPTY') return !textValue(row.sheetStatus)
+    return true
   }).sort((a, b) => {
     const av = a.effective[sort.key], bv = b.effective[sort.key]
     const order = sort.key === 'jam' ? hourRank(av) - hourRank(bv) : textValue(av).localeCompare(textValue(bv), 'id', { numeric: true, sensitivity: 'base' })
     return (sort.desc ? -order : order) || a.key.localeCompare(b.key)
-  }), [scoped, jam, selectedHour, status, search, sort])
+  }), [matching, status, sort])
   const pageCount = Math.max(1, Math.ceil(visible.length / 50))
   const currentPage = Math.min(page, pageCount - 1)
   const shown = visible.slice(currentPage * 50, (currentPage + 1) * 50)
@@ -100,17 +107,22 @@ export function SmartMonitoringSheet({ rows, connection, date, defaultSource = '
     <div className="smart-filters"><label className="search-field"><Search size={16}/><input aria-label="Cari Spreadsheet Pintar" placeholder="Shipment, toko, AC, kendala…" value={search} onChange={e => updateFilter(setSearch)(e.target.value)}/></label>
       <label>PIC<select aria-label="PIC Spreadsheet Pintar" value={pic} onChange={e => updateFilter(setPic)(e.target.value)} disabled={sync.busy}><option value="ALL">Semua PIC</option>{[...new Set([pic, profile.name, ...rows.map(r => norm(r.pic))])].filter(p => p && p !== 'ALL').sort().map(p => <option key={p}>{p}</option>)}</select></label>
       <label>Sumber<select aria-label="Sumber Spreadsheet Pintar" value={source} onChange={e => updateFilter(setSource)(e.target.value)} disabled={sync.busy}><option value="ALL">DS + REG</option><option>DS</option><option>REG</option></select></label>
-      <label>JAM terakhir<select aria-label="JAM Spreadsheet Pintar" value={jam} onChange={e => updateFilter(setJam)(e.target.value)}><option value="ALL">Semua JAM</option><option value="LATEST">JAM terbaru{latestHour ? ` (${latestHour})` : ''}</option>{hourOptions.map(h => <option key={h}>{h}</option>)}{!['ALL', 'LATEST'].includes(jam) && !hourOptions.includes(jam) && <option value={jam}>{jam} · tidak ada data terbaru</option>}</select></label>
-      <label>Status<select aria-label="Status Spreadsheet Pintar" value={status} onChange={e => updateFilter(setStatus)(e.target.value)}><option value="ALL">Semua status</option><option value="ACTIVE">Belum DONE</option><option value="DONE">DONE</option><option value="EMPTY">Belum diisi</option></select></label>
+      <label>JAM<select aria-label="JAM Spreadsheet Pintar" value={jam} onChange={e => updateFilter(setJam)(e.target.value)}><option value="ALL">Semua JAM</option><option value="LATEST">JAM terbaru{latestHour ? ` (${latestHour})` : ''}</option>{hourOptions.map(h => <option key={h}>{h}</option>)}{!['ALL', 'LATEST'].includes(jam) && !hourOptions.includes(jam) && <option value={jam}>{jam} · tidak ada data</option>}</select></label>
+      <label>Status<select aria-label="Status Spreadsheet Pintar" value={status} onChange={e => updateFilter(setStatus)(e.target.value)}><option value="ALL">Semua status ({matching.length})</option><option value="ACTIVE">Belum DONE ({matching.length - doneCount})</option><option value="DONE">DONE ({doneCount})</option><option value="EMPTY">Belum diisi</option></select></label>
     </div>
-    <div className="smart-table-tools"><span>Klik isian untuk mengedit · klik judul kolom untuk mengurutkan</span><label><input type="checkbox" checked={extra} onChange={e => setExtra(e.target.checked)}/>Detail AC / PIC</label><button className="secondary-button" disabled={!visible.length} onClick={copy}><Copy size={14}/>Salin tampilan</button></div>
+    <div className="smart-table-tools"><span>Klik isian untuk mengedit · biru menandai isian dari jam sebelumnya</span><label><input type="checkbox" checked={extra} onChange={e => setExtra(e.target.checked)}/>Detail AC / PIC</label><button className="secondary-button" disabled={!visible.length} onClick={copy}><Copy size={14}/>Salin tampilan</button></div>
     <div className="smart-table-scroll" role="region" aria-label="Tabel Spreadsheet Pintar, geser untuk kolom lain" tabIndex={0}><table className="smart-table"><thead><tr>{columns.map(col => <th key={col.key} scope="col" aria-sort={sort.key === col.key ? sort.desc ? 'descending' : 'ascending' : 'none'}><button onClick={() => { setSort({ key: col.key, desc: sort.key === col.key && !sort.desc }); setPage(0) }}>{col.label}<ArrowDownUp size={12}/></button></th>)}<th scope="col">Riwayat</th></tr></thead><tbody>{shown.map(entry => <tr key={entry.key} className={isDoneOrder(entry.effective) ? 'smart-done' : ''}>{columns.map(col => {
       const editable = FOLLOW_UP_FIELDS.some(f => f.key === col.key)
       const value = entry.effective[col.key]
-      return <td key={col.key} className={`${entry.inherited[col.key] ? 'smart-inherited' : ''} ${col.key === 'kendala' ? 'smart-note-cell' : ''} ${col.key === 'kondisiMotor' && norm(value) === 'RUSAK' ? 'smart-broken' : ''}`}>
-        {col.key === 'shipment' ? <><strong>{value}</strong><small>{entry.row.source} · {entry.history.length} kemunculan</small>{entry.conflicts.length > 0 && <small className="smart-conflict">Isian sumber berbeda · periksa riwayat</small>}</> : editable ? <button className="smart-edit-cell" disabled={!writable || sync.busy} onClick={() => setEditor({ entry, focus: col.key })} aria-label={`Edit ${col.label} ${entry.row.shipment}`}><span>{textValue(value) || <i>Belum diisi</i>}</span><Pencil size={12}/>{entry.inherited[col.key] && <small>Dari {entry.inherited[col.key].jam} · belum tersimpan</small>}</button> : textValue(value) || '—'}
+      const inherited = entry.inherited[col.key]
+      const label = textValue(value)
+      const tooltip = inherited ? `${label} · Dari JAM ${inherited.jam}, belum tersimpan` : label
+      return <td key={col.key} className={`${inherited ? 'smart-inherited' : ''} ${col.key === 'kendala' ? 'smart-note-cell' : ''} ${col.key === 'kondisiMotor' && norm(value) === 'RUSAK' ? 'smart-broken' : ''}`}>
+        {col.key === 'shipment' ? <strong>{value}</strong> : editable ?
+          <button className="smart-edit-cell" title={tooltip} disabled={!writable || sync.busy} onClick={() => setEditor({ entry, focus: col.key })} aria-label={`Edit ${col.label} ${entry.row.shipment}`}><span>{label || '—'}</span><Pencil size={11}/></button> :
+          <span className="smart-cell-text" title={label}>{label || '—'}</span>}
       </td>
-    })}<td><button className="secondary-button" aria-label={`Riwayat ${entry.row.shipment}`} onClick={() => setEditor({ entry, history: true })}><History size={14}/>{entry.hours.join(' → ') || 'Lihat'}</button></td></tr>)}</tbody></table></div>
+    })}<td><button className="smart-history-button" title={entry.conflicts.length ? 'Isian sumber berbeda · periksa riwayat' : entry.hours.join(' → ')} aria-label={`Riwayat ${entry.row.shipment}${entry.conflicts.length ? ', isian sumber berbeda' : ''}`} onClick={() => setEditor({ entry, history: true })}><History size={14}/>{entry.conflicts.length ? 'Periksa' : 'Lihat'}</button></td></tr>)}</tbody></table></div>
     {!visible.length && <div className="smart-empty">{connection?.phase === 'loading' ? 'Memuat data spreadsheet…' : 'Tidak ada Shipment yang cocok. Sesuaikan PIC, JAM, atau status.'}</div>}
     <footer className="smart-footer"><span>{visible.length ? currentPage * 50 + 1 : 0}–{Math.min((currentPage + 1) * 50, visible.length)} dari {visible.length} Shipment · 50 baris per halaman</span><div><button className="icon-button" aria-label="Halaman sebelumnya" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}><ChevronLeft size={17}/></button><span>{currentPage + 1} / {pageCount}</span><button className="icon-button" aria-label="Halaman berikutnya" disabled={currentPage + 1 >= pageCount} onClick={() => setPage(currentPage + 1)}><ChevronRight size={17}/></button></div></footer>
     {editor && <FollowUpEditor key={`${editor.entry.row.id || editor.entry.row.sheetRow}:${editor.history ? 'history' : 'edit'}`} {...editor} onEditRow={row => setEditor({entry:{...editor.entry,row,effective:row,inherited:{}},focus:'sheetStatus'})} groupingOptions={groupingOptions} pic={profile.name} writable={writable} onClose={() => setEditor(null)} onSaved={() => { setEditor(null); connection?.refresh(); window.dispatchEvent(new Event('sapa:sheets-changed')); showToast?.('Isian follow up tersimpan di baris terpilih.', 'success') }}/>} 
